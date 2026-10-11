@@ -1,0 +1,83 @@
+name: Release
+
+# 推送 v 开头的标签（例如 v1.5.8）时，打出两个签名正式版 APK 并发布到 GitHub Releases。
+# 标签里的版本号必须和 android/app/build.gradle 里的 versionName 一致。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Check tag matches versionName
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          NAME=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          if [ "$VERSION" != "$NAME" ]; then
+            echo "::error::标签 $GITHUB_REF_NAME 和 versionName $NAME 不一致"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      # 和小企鹅输入法同一个签名（见 build.gradle）。发布版必须有签名，缺 Secret 时直接失败，不发调试签名的包
+      - name: Build release APKs (完整版 + 无过敏记录版)
+        working-directory: android
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+        run: |
+          if [ -z "$SIGN_KEY_BASE64" ] || [ -z "$SIGN_KEY_PWD" ] || [ -z "$SIGN_KEY_ALIAS" ]; then
+            echo "::error::仓库 Secrets 里缺少 SIGN_KEY_BASE64 / SIGN_KEY_PWD / SIGN_KEY_ALIAS"
+            exit 1
+          fi
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Rename and verify signature
+        run: |
+          mkdir dist
+          cp android/app/build/outputs/apk/full/release/*.apk "dist/riji-$VERSION-full.apk"
+          cp android/app/build/outputs/apk/noAllergy/release/*.apk "dist/riji-$VERSION-noAllergy.apk"
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          for f in dist/*.apk; do
+            "$APKSIGNER" verify --print-certs "$f" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+          done
+          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+
+      - name: Release notes from CHANGELOG
+        run: |
+          {
+            awk -v v="$VERSION" '
+              /^## / { if (found) exit; if (index($0, "## " v) == 1) { found = 1; next } }
+              found' CHANGELOG.md
+            echo
+            echo "### 下载"
+            echo
+            echo "- \`riji-$VERSION-full.apk\`：完整版"
+            echo "- \`riji-$VERSION-noAllergy.apk\`：无过敏记录版（去掉过敏记录，其它一样）"
+            echo
+            echo "两个版本包名相同，只能装其中一个。"
+          } > notes.md
+          cat notes.md
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --title "日迹 $VERSION" \
+            --notes-file notes.md \
+            --verify-tag

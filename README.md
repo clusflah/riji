@@ -20,7 +20,9 @@
 
 ## 下载
 
-在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建（需要登录 GitHub），页面底部 Artifacts 里有两个压缩包，各含完整版和无过敏记录版两个 APK：
+**正式版**：到 [Releases](https://github.com/clusflah/riji/releases/latest) 下载 `riji-<版本>-full.apk`（完整版）或 `riji-<版本>-noAllergy.apk`（无过敏记录版），两个只能装一个；不需要登录。
+
+**开发中的版本**：在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建（需要登录 GitHub，90 天后过期），页面底部 Artifacts 里有两个压缩包，各含完整版和无过敏记录版两个 APK：
 
 - `birthday-reminder-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
 - `birthday-reminder-apk`：调试版
@@ -31,6 +33,18 @@
 
 调试版签名：可选再加一个 `DEBUG_KEYSTORE_BASE64`（电脑上 `~/.android/debug.keystore` 的 base64），
 自动构建的调试版就和自己电脑上打的调试版签名一致；不设置则每次构建用临时签名。
+
+## 发布新版本
+
+改 `android/app/build.gradle` 里的 `versionName`，在 CHANGELOG.md 写好这一版的记录，提交推送后打标签：
+
+```
+git tag -a v1.5.8 -m "日迹 1.5.8"
+git push origin v1.5.8
+```
+
+`.github/workflows/release.yml` 会检查标签和 `versionName` 是否一致，用上面的正式版签名打出两个 APK（缺签名 Secret 时直接失败），
+把 CHANGELOG 里这一版的内容作为说明，连同 SHA256SUMS.txt 发布到 Releases。
 
 ## 打开和运行
 
