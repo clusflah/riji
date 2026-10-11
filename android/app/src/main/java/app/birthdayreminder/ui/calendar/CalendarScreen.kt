@@ -584,7 +584,8 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
             // 右上角“休 / 班”小角标
             day.holidayTag?.let { tag ->
                 Text(
-                    tag, fontSize = 10.sp, fontWeight = FontWeight.SemiBold,
+                    // 行高必须给小：默认样式行高 24sp，会把这一行撑高，格子高度固定，最下面的小圆点就被挤没了
+                    tag, fontSize = 10.sp, lineHeight = 11.sp, fontWeight = FontWeight.SemiBold,
                     color = (if (tag == "休") LiColors.holiday else MaterialTheme.colorScheme.onSurfaceVariant).copy(alpha = dim),
                     modifier = Modifier.align(Alignment.TopEnd).padding(end = 4.dp)
                 )
