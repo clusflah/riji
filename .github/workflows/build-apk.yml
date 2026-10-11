@@ -24,7 +24,7 @@ jobs:
           ./gradlew assembleDebug
 
       - name: Upload APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: birthday-reminder-apk
           path: android/app/build/outputs/apk/*/debug/*.apk
