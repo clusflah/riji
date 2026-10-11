@@ -20,7 +20,20 @@
 
 ## 下载
 
-在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建，下载 `birthday-reminder-apk`，里面有完整版和无过敏记录版两个 APK。
+在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建（需要登录 GitHub），页面底部 Artifacts 里有两个压缩包，各含完整版和无过敏记录版两个 APK：
+
+- `birthday-reminder-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
+- `birthday-reminder-apk`：调试版
+
+自动构建默认用临时签名，每次都不同，不能覆盖安装手机上已有的版本。想让它和自己电脑上打的包签名一致（可以直接覆盖安装、数据保留），
+把电脑上的 `~/.android/debug.keystore`（Windows 在 `C:\Users\<用户名>\.android\debug.keystore`）转成 base64，
+存到仓库 Settings → Secrets and variables → Actions，名字填 `DEBUG_KEYSTORE_BASE64`：
+
+```
+base64 -w0 ~/.android/debug.keystore                                          # Linux
+base64 -i ~/.android/debug.keystore | pbcopy                                  # macOS（直接复制到剪贴板）
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore")) | Set-Clipboard   # Windows PowerShell
+```
 
 ## 打开和运行
 
