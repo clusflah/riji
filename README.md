@@ -14,9 +14,9 @@
 |---|---|---|
 | <img src="docs/screenshots/calendar-all.jpg" width="240" alt="日历首页：月视图、农历、节假日和调休，下方“全部”时间轴"> | <img src="docs/screenshots/calendar-reminders.jpg" width="240" alt="日历首页：提醒标签里的待办，可打勾完成"> | <img src="docs/screenshots/calendar-phrases.jpg" width="240" alt="月历收成一周，常用语按分类分组、一键复制"> |
 
-| AI 助手 | 设置 |
-|---|---|
-| <img src="docs/screenshots/ai-assistant.jpg" width="240" alt="AI 助手：读取本周数据做总结，支持语音输入和朗读"> | <img src="docs/screenshots/settings.jpg" width="240" alt="设置：农历、节日节气、每周开始、外观、通知、提醒检查、功能开关、备份"> |
+| AI 助手 | 设置 | 设置（续） |
+|---|---|---|
+| <img src="docs/screenshots/ai-assistant.jpg" width="240" alt="AI 助手：读取本周数据做总结，支持语音输入和朗读"> | <img src="docs/screenshots/settings-1.jpg" width="240" alt="设置：农历、节日节气、每周开始、外观、通知、提醒检查、功能开关"> | <img src="docs/screenshots/settings-2.jpg" width="240" alt="设置：功能开关、数据备份、云盘备份、节假日数据、高德地图 Key"> |
 
 ## 下载
 
