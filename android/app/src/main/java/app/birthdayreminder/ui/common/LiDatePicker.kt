@@ -131,7 +131,7 @@ fun LiDatePickerDialog(initial: LocalDate, onPick: (LocalDate) -> Unit, onDismis
                 val lead = (ym.atDay(1).dayOfWeek.value % 7 - weekStart + 7) % 7
                 val cells = List(42) { i -> (i - lead + 1).takeIf { it in 1..ym.lengthOfMonth() } }
                 // 只画到这个月最后一天所在的那一行，但固定高度 6 行，切换月份时按钮不跳动
-                Column(modifier = Modifier.height(6 * 44.dp), verticalArrangement = Arrangement.Top) {
+                Column(modifier = Modifier.height(264.dp), verticalArrangement = Arrangement.Top) {
                     cells.chunked(7).filter { row -> row.any { it != null } }.forEach { row ->
                         Row(modifier = Modifier.fillMaxWidth()) {
                             row.forEach { d ->
