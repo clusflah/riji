@@ -1,4 +1,5 @@
 # 日迹（原生 Android 应用）
+n[![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 
 **版本 1.5.7**（更新记录见 CHANGELOG.md；云盘备份设置见 CLOUD_BACKUP.md）
 
