@@ -13,8 +13,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -27,7 +25,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -43,11 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.birthdayreminder.data.Reminder
 import app.birthdayreminder.ui.common.FieldLabel
+import app.birthdayreminder.ui.common.LiDatePickerDialog
 import app.birthdayreminder.privacy.SecureWindow
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneOffset
 import java.util.UUID
 
 private val REPEAT_OPTIONS = listOf(
@@ -242,23 +238,7 @@ fun ReminderEditScreen(
         }
     }
 
-    if (showDate) {
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        )
-        DatePickerDialog(
-            onDismissRequest = { showDate = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    state.selectedDateMillis?.let {
-                        date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                    }
-                    showDate = false
-                }) { Text("确定") }
-            },
-            dismissButton = { TextButton(onClick = { showDate = false }) { Text("取消") } }
-        ) { DatePicker(state = state) }
-    }
+    if (showDate) LiDatePickerDialog(date, onPick = { date = it }, onDismiss = { showDate = false })
 
     if (showTime) {
         val initial = try { LocalTime.parse(time) } catch (e: Exception) { LocalTime.of(9, 0) }
