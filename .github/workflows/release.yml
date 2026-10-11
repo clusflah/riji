@@ -2,9 +2,18 @@ name: Release
 
 # 推送 v 开头的标签（例如 v1.5.8）时，打出两个签名正式版 APK 并发布到 GitHub Releases。
 # 标签里的版本号必须和 android/app/build.gradle 里的 versionName 一致。
+# 也可以在 Actions 页面手动运行，填一个已有的标签（标签已推送但上次发布失败时用）。
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的已有标签，例如 v1.5.7'
+        required: true
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -14,6 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
 
       - uses: actions/setup-java@v5
         with:
@@ -23,10 +34,10 @@ jobs:
 
       - name: Check tag matches versionName
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
           NAME=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
           if [ "$VERSION" != "$NAME" ]; then
-            echo "::error::标签 $GITHUB_REF_NAME 和 versionName $NAME 不一致"
+            echo "::error::标签 $TAG 和 versionName $NAME 不一致"
             exit 1
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
@@ -62,8 +73,15 @@ jobs:
           cp android/app/build/outputs/apk/full/release/*.apk "dist/riji-$VERSION-full.apk"
           cp android/app/build/outputs/apk/noAllergy/release/*.apk "dist/riji-$VERSION-noAllergy.apk"
           APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          # 日迹正式版签名证书的 SHA-256 指纹（公开信息），签名不对就不发布
+          EXPECTED=d94b4d8479505f8d30b96013cb85beed4c5c8028aa92e008265ca17535071bc5
           for f in dist/*.apk; do
-            "$APKSIGNER" verify --print-certs "$f" | grep -E 'Signer #1 certificate (DN|SHA-256)'
+            CERTS=$("$APKSIGNER" verify --print-certs "$f")
+            echo "$CERTS" | grep -E 'certificate (DN|SHA-256 digest)'
+            if ! echo "$CERTS" | grep -q "certificate SHA-256 digest: $EXPECTED"; then
+              echo "::error::$f 的签名不是日迹正式版签名"
+              exit 1
+            fi
           done
           (cd dist && sha256sum *.apk > SHA256SUMS.txt)
 
@@ -87,7 +105,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/* \
+          gh release create "$TAG" dist/* \
             --title "日迹 $VERSION" \
             --notes-file notes.md \
             --verify-tag
