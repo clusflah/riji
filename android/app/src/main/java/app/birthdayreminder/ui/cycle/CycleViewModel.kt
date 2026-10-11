@@ -13,6 +13,7 @@ import app.birthdayreminder.data.Medication
 import app.birthdayreminder.domain.CycleLogic
 import app.birthdayreminder.domain.MedLogic
 import app.birthdayreminder.notify.CycleScheduler
+import app.birthdayreminder.notify.Prefs
 import app.birthdayreminder.notify.MedActions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,18 +37,52 @@ class CycleViewModel(app: Application, val profile: String) : AndroidViewModel(a
     val meds: StateFlow<List<Medication>> = db.medDao().observeMeds().map { l -> l.filter { it.isPrivate == isPrivate } }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val logs: StateFlow<List<MedLog>> = db.medDao().observeLogs().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** 保存一天的记录；什么都没填就删掉这天。保存后重排生理期提醒（预测变了） */
+    private fun isEmpty(d: CycleDay) =
+        d.flow == 0 && d.symptoms.isBlank() && d.mood.isBlank() && (d.discharge.isBlank() || d.discharge == "none") && d.note.isBlank()
+
+    /**
+     * 保存一天的记录；什么都没填就删掉这天。
+     * 这天从“不是经期”改成“是经期”、而且是新一次经期的第一天时，后面按设置的经期天数自动标成经期（之后可以一天天改）。
+     * 保存后重排生理期提醒（预测变了）
+     */
     fun saveDay(d: CycleDay) = viewModelScope.launch {
-        val empty = d.flow == 0 && d.symptoms.isBlank() && d.mood.isBlank() && (d.discharge.isBlank() || d.discharge == "none") && d.note.isBlank()
-        if (empty) db.cycleDao().delete(profile, d.date) else db.cycleDao().upsert(d.copy(profile = profile, updatedAt = System.currentTimeMillis()))
+        val wasPeriod = db.cycleDao().get(profile, d.date)?.let { CycleLogic.isPeriod(it.flow) } == true
+        if (isEmpty(d)) db.cycleDao().delete(profile, d.date) else db.cycleDao().upsert(d.copy(profile = profile, updatedAt = System.currentTimeMillis()))
+        if (!wasPeriod && CycleLogic.isPeriod(d.flow)) autoFill(LocalDate.parse(d.date))
         if (!isPrivate) CycleScheduler.reschedule(getApplication())
     }
 
-    /** “今天来了”：今天记成流量中等（已经记了经期的不动） */
+    /** “今天来了”：今天标成经期（不用选流量），后面几天自动补上；已经记了经期的不动 */
     fun periodStartedToday() = viewModelScope.launch {
-        val today = LocalDate.now().toString()
-        val old = db.cycleDao().get(profile, today)
-        if (old == null || old.flow < CycleLogic.PERIOD_FLOW) db.cycleDao().upsert((old ?: CycleDay(today, profile = profile)).copy(flow = 3, updatedAt = System.currentTimeMillis()))
+        val today = LocalDate.now()
+        val old = db.cycleDao().get(profile, today.toString())
+        if (old == null || !CycleLogic.isPeriod(old.flow)) {
+            db.cycleDao().upsert((old ?: CycleDay(today.toString(), profile = profile)).copy(flow = CycleLogic.PERIOD_ONLY, updatedAt = System.currentTimeMillis()))
+            autoFill(today)
+        }
+        if (!isPrivate) CycleScheduler.reschedule(getApplication())
+    }
+
+    /** 新一次经期从 start 开始：后面的日子标成经期；已经记了别的（症状、心情…）的日子保留原来的内容，只补上经期 */
+    private suspend fun autoFill(start: LocalDate) {
+        val all = db.cycleDao().getAll(profile)
+        val len = Prefs.cycleDefaultPeriod(getApplication(), profile)
+        val now = System.currentTimeMillis()
+        for (x in CycleLogic.autoFillDates(all, start, len)) {
+            val old = all.firstOrNull { it.date == x.toString() }
+            if (old != null && CycleLogic.isPeriod(old.flow)) continue
+            db.cycleDao().upsert((old ?: CycleDay(x.toString(), profile = profile)).copy(flow = CycleLogic.PERIOD_ONLY, updatedAt = now))
+        }
+    }
+
+    /** “经期到这天结束”：后面紧接着的经期日子都取消（只记了经期的整天删掉，还记了别的就只去掉经期） */
+    fun endPeriodOn(end: LocalDate) = viewModelScope.launch {
+        val all = db.cycleDao().getAll(profile)
+        for (x in CycleLogic.datesAfterEnd(all, end)) {
+            val old = all.firstOrNull { it.date == x.toString() } ?: continue
+            val cleared = old.copy(flow = 0, updatedAt = System.currentTimeMillis())
+            if (isEmpty(cleared)) db.cycleDao().delete(profile, old.date) else db.cycleDao().upsert(cleared)
+        }
         if (!isPrivate) CycleScheduler.reschedule(getApplication())
     }
 

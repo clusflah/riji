@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.6.0**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
+**版本 1.6.1**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
 
 农历日历 + 节假日/调休 + 生日、提醒事项、闹钟、日记、常用语 + 健身、过敏、用药就医、生理期 + 隐私空间 + AI 助手 + 桌面小组件 + 云盘备份。
 纯原生：Kotlin + Jetpack Compose + Room，没有网页界面，也不再依赖 Capacitor / Node。

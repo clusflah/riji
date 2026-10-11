@@ -464,14 +464,33 @@ private fun DayEditor(vm: CycleViewModel, date: LocalDate, onDismiss: () -> Unit
     var mood by remember(date) { mutableStateOf(old?.mood ?: "") }
     var discharge by remember(date) { mutableStateOf(old?.discharge ?: "") }
     var note by remember(date) { mutableStateOf(old?.note ?: "") }
+    val ctx = LocalContext.current
+    val period = CycleLogic.isPeriod(flow)
+    val wasPeriod = old != null && CycleLogic.isPeriod(old.flow)
+    // 新标成经期、又是这次经期第一天：后面会自动补几天
+    val willFill = remember(days, date, period) {
+        if (!period || wasPeriod) 0 else CycleLogic.autoFillDates(days, date, Prefs.cycleDefaultPeriod(ctx, vm.profile)).size
+    }
+    // 这天之后紧接着还有几天经期（可以一键在这天结束）
+    val after = remember(days, date) { if (wasPeriod) CycleLogic.datesAfterEnd(days, date).size else 0 }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("${date.monthValue}月${date.dayOfMonth}日 周${WEEK[date.dayOfWeek.value - 1]}") },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("流量（少及以上算经期）", style = MaterialTheme.typography.labelLarge)
+                // 是不是经期：直接点，不用选流量
+                FilterChip(selected = period, onClick = { flow = if (period) 0 else CycleLogic.PERIOD_ONLY }, label = { Text("🩸 是经期") })
+                if (willFill > 0) Text("后面 $willFill 天会自动标成经期（按设置的经期天数），之后可以一天天改。",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (after > 0) TextButton(onClick = { vm.endPeriodOn(date) }) { Text("经期到这天结束（取消后面 $after 天）") }
+                Text("流量（选填；点滴不算经期）", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    CycleLogic.FLOWS.forEachIndexed { i, l -> FilterChip(selected = flow == i, onClick = { flow = i }, label = { Text(l) }) }
+                    // 再点一次已选的流量就取消：经期的退回“只标了经期”，点滴退回“无”
+                    CycleLogic.FLOWS.withIndex().drop(1).forEach { (i, l) ->
+                        FilterChip(selected = flow == i, onClick = {
+                            flow = if (flow != i) i else if (CycleLogic.isPeriod(i)) CycleLogic.PERIOD_ONLY else 0
+                        }, label = { Text(l) })
+                    }
                 }
                 Text("症状", style = MaterialTheme.typography.labelLarge)
                 ChipFlow(CycleLogic.SYMPTOMS, { it in syms }) { k -> if (k in syms) syms.remove(k) else syms.add(k) }
@@ -523,7 +542,8 @@ private fun CycleSettingsDialog(profile: String, onDismiss: () -> Unit) {
             Column(modifier = Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SwitchLine("避孕模式", "不显示、不提醒易孕期和排卵日（在吃避孕药时用）", bc) { v -> bc = v }
                 HorizontalDivider()
-                Text("记录不够时的默认值（记了几次以后会自动按你的实际情况算）", style = MaterialTheme.typography.bodySmall,
+                Text("记录不够时的默认值（记了几次以后会自动按你的实际情况算）。" +
+                    "经期天数也用来自动标记：标了一次经期的第一天，后面就按这个天数标成经期，可以再一天天改。", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = len, onValueChange = { v -> len = v.filter { c -> c.isDigit() }.take(2) }, singleLine = true,

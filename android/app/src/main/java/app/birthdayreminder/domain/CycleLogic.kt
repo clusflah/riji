@@ -12,6 +12,31 @@ import java.time.temporal.ChronoUnit
 object CycleLogic {
     val FLOWS = listOf("无", "点滴", "少", "中", "多")
     const val PERIOD_FLOW = 2          // 少量及以上算经期（点滴不算）
+    /** 只标了“是经期”、没选流量（存在 flow 里，比“多”大，所以也算经期） */
+    const val PERIOD_ONLY = 5
+
+    fun isPeriod(flow: Int) = flow >= PERIOD_FLOW
+    /** 流量的文字：只标了经期的显示“经期” */
+    fun flowLabel(flow: Int) = if (flow == PERIOD_ONLY) "经期" else FLOWS[flow.coerceIn(0, 4)]
+
+    /**
+     * 把 start 标成经期时，后面要自动标成经期的日子：只在这是新一次经期的第一天（前两天都不是经期）时才补，
+     * 补到一共 periodLength 天（含 start）。已经记过的日子由调用方决定怎么处理。
+     */
+    fun autoFillDates(days: List<CycleDay>, start: LocalDate, periodLength: Int): List<LocalDate> {
+        val period = days.filter { isPeriod(it.flow) }.map { it.date }.toSet()
+        if (start.minusDays(1).toString() in period || start.minusDays(2).toString() in period) return emptyList()
+        return (1 until periodLength.coerceIn(1, 12)).map { start.plusDays(it.toLong()) }
+    }
+
+    /** “经期到这天结束”：这天之后紧接着的经期日子（连续的），要取消掉 */
+    fun datesAfterEnd(days: List<CycleDay>, end: LocalDate): List<LocalDate> {
+        val period = days.filter { isPeriod(it.flow) }.map { it.date }.toSet()
+        val out = ArrayList<LocalDate>()
+        var x = end.plusDays(1)
+        while (x.toString() in period && out.size < 30) { out += x; x = x.plusDays(1) }
+        return out
+    }
     val SYMPTOMS = listOf(
         "cramps" to "痛经", "headache" to "头痛", "backache" to "腰酸", "breast" to "胸胀", "bloating" to "腹胀",
         "acne" to "长痘", "fatigue" to "疲劳", "insomnia" to "失眠", "nausea" to "恶心", "moody" to "情绪波动", "appetite" to "食欲变化"
@@ -32,7 +57,7 @@ object CycleLogic {
 
     /** 流量“少”及以上的连续日子算一次经期；中间漏记一天也算连着 */
     fun periods(days: List<CycleDay>): List<Period> {
-        val dates = days.filter { it.flow >= PERIOD_FLOW }.mapNotNull { d(it.date) }.sorted()
+        val dates = days.filter { isPeriod(it.flow) }.mapNotNull { d(it.date) }.sorted()
         val out = ArrayList<Period>()
         for (x in dates) {
             val last = out.lastOrNull()
@@ -161,7 +186,7 @@ object CycleLogic {
 
     /** 一天记录的摘要：流量 中 · 痛经、腰酸 · 心情 烦躁 */
     fun daySummary(x: CycleDay): String = listOfNotNull(
-        if (x.flow > 0) "流量 ${FLOWS[x.flow.coerceIn(0, 4)]}" else null,
+        if (x.flow == PERIOD_ONLY) "经期" else if (x.flow > 0) "流量 ${flowLabel(x.flow)}" else null,
         MedicalLogic.listFromJson(x.symptoms).mapNotNull { k -> label(SYMPTOMS, k).ifEmpty { null } }.joinToString("、").ifEmpty { null },
         label(MOODS, x.mood).ifEmpty { null }?.let { "心情 $it" },
         label(DISCHARGES, x.discharge).takeIf { it.isNotEmpty() && x.discharge != "none" }?.let { "分泌物 $it" },
@@ -174,7 +199,7 @@ object CycleLogic {
         for (h in history(periods)) sb.append("${h.start},${h.periodLength},${h.cycleLength ?: ""}\n")
         sb.append("\n日期,流量,症状,心情,分泌物,备注\n")
         for (x in days.sortedByDescending { it.date }) {
-            sb.append(listOf(x.date, FLOWS[x.flow.coerceIn(0, 4)],
+            sb.append(listOf(x.date, flowLabel(x.flow),
                 q(MedicalLogic.listFromJson(x.symptoms).map { label(SYMPTOMS, it) }.joinToString("、")),
                 label(MOODS, x.mood), label(DISCHARGES, x.discharge), q(x.note)).joinToString(",")).append('\n')
         }

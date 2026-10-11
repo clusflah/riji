@@ -337,7 +337,7 @@ object BackupCodec {
         val cycleDays = asList(d["cycleDays"])?.mapNotNull { x ->
             val c = asMap(x) ?: return@mapNotNull null
             val date = validDay(c["date"]) ?: return@mapNotNull null
-            CycleDay(date, ((c["flow"] as? Number)?.toInt() ?: 0).coerceIn(0, 4),
+            CycleDay(date, ((c["flow"] as? Number)?.toInt() ?: 0).coerceIn(0, CycleLogic.PERIOD_ONLY),
                 MedicalLogic.listToJson(asList(c["symptoms"]).orEmpty().mapNotNull { (it as? String)?.takeIf { k -> k in symKeys } }),
                 (c["mood"] as? String)?.takeIf { m -> CycleLogic.MOODS.any { it.first == m } } ?: "",
                 (c["discharge"] as? String)?.takeIf { m -> CycleLogic.DISCHARGES.any { it.first == m } } ?: "",
