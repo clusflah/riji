@@ -14,11 +14,35 @@ android {
         versionName "1.5.7" // 每次更新往上加：修复和小改动加最后一位（1.0.1），新功能加中间一位（1.1.0）
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
+    // 正式版签名：和小企鹅输入法（fcitx5-android-mod）用同一把钥匙，环境变量名也相同：
+    // SIGN_KEY_BASE64（签名文件的 base64）或 SIGN_KEY_FILE（签名文件路径），SIGN_KEY_PWD（密码），SIGN_KEY_ALIAS（别名）。
+    // GitHub 上从仓库 Secret 读取；本机没设置这些变量时，正式版退回用调试签名。
+    def envOrProp = { String env, String prop -> System.getenv(env) ?: (project.findProperty(prop) as String) }
+    def signKeyFile = null
+    def keyPath = envOrProp("SIGN_KEY_FILE", "signKeyFile")
+    def keyB64 = envOrProp("SIGN_KEY_BASE64", "signKeyBase64")
+    if (keyPath && new File(keyPath).exists()) {
+        signKeyFile = new File(keyPath)
+    } else if (keyB64) {
+        def dir = layout.buildDirectory.get().asFile
+        dir.mkdirs()
+        signKeyFile = new File(dir, "sign.ks")
+        signKeyFile.bytes = keyB64.trim().decodeBase64()
+    }
+    signingConfigs {
+        if (signKeyFile != null) {
+            release {
+                storeFile signKeyFile
+                storePassword envOrProp("SIGN_KEY_PWD", "signKeyPwd")
+                keyAlias envOrProp("SIGN_KEY_ALIAS", "signKeyAlias")
+                keyPassword envOrProp("SIGN_KEY_PWD", "signKeyPwd")
+            }
+        }
+    }
     buildTypes {
         // 日常使用请装正式版（Build Variants 里选 fullRelease）：不可调试，系统会完整编译优化，滑动比调试版流畅很多。
-        // 用和调试版相同的签名，所以可以直接覆盖安装调试版，数据都保留。
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signKeyFile != null ? signingConfigs.release : signingConfigs.debug
             debuggable false
             minifyEnabled false      // 不压缩代码，避免误伤用到反射的功能
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -25,15 +25,12 @@
 - `birthday-reminder-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
 - `birthday-reminder-apk`：调试版
 
-自动构建默认用临时签名，每次都不同，不能覆盖安装手机上已有的版本。想让它和自己电脑上打的包签名一致（可以直接覆盖安装、数据保留），
-把电脑上的 `~/.android/debug.keystore`（Windows 在 `C:\Users\<用户名>\.android\debug.keystore`）转成 base64，
-存到仓库 Settings → Secrets and variables → Actions，名字填 `DEBUG_KEYSTORE_BASE64`：
+正式版和小企鹅输入法（fcitx5-android-mod）用同一个签名：在本仓库 Settings → Secrets and variables → Actions 里添加
+`SIGN_KEY_BASE64`、`SIGN_KEY_PWD`、`SIGN_KEY_ALIAS` 三个 Secret，值和输入法仓库里的一样。
+没设置时正式版退回用调试签名。本机打正式版想用同一个签名，可以设置环境变量 `SIGN_KEY_FILE`（签名文件路径）、`SIGN_KEY_PWD`、`SIGN_KEY_ALIAS`。
 
-```
-base64 -w0 ~/.android/debug.keystore                                          # Linux
-base64 -i ~/.android/debug.keystore | pbcopy                                  # macOS（直接复制到剪贴板）
-[Convert]::ToBase64String([IO.File]::ReadAllBytes("$env:USERPROFILE\.android\debug.keystore")) | Set-Clipboard   # Windows PowerShell
-```
+调试版签名：可选再加一个 `DEBUG_KEYSTORE_BASE64`（电脑上 `~/.android/debug.keystore` 的 base64），
+自动构建的调试版就和自己电脑上打的调试版签名一致；不设置则每次构建用临时签名。
 
 ## 打开和运行
 

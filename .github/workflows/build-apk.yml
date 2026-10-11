@@ -17,9 +17,8 @@ jobs:
           java-version: 21
           cache: gradle
 
-      # 签名：仓库 Secret 里有 DEBUG_KEYSTORE_BASE64（电脑上 ~/.android/debug.keystore 的 base64）时用它签名，
-      # 打出来的包和自己电脑上打的签名一致，可以直接覆盖安装、数据保留。
-      # 没设置时用这次构建临时生成的签名（每次都不同，覆盖安装会提示签名不一致）。
+      # 调试版签名：仓库 Secret 里有 DEBUG_KEYSTORE_BASE64（电脑上 ~/.android/debug.keystore 的 base64）时用它，
+      # 和自己电脑上打的调试版签名一致；没设置时用这次构建临时生成的签名（每次都不同）。
       - name: Restore signing key
         env:
           DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
@@ -29,12 +28,20 @@ jobs:
             echo "$DEBUG_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
             echo "使用仓库 Secret 里的签名"
           else
-            echo "::warning::没有设置 DEBUG_KEYSTORE_BASE64，本次用临时签名，不能覆盖安装手机上已有的版本"
+            echo "没有设置 DEBUG_KEYSTORE_BASE64，调试版用临时签名"
           fi
 
+      # 正式版用和小企鹅输入法同一个签名：仓库 Secret 里设置 SIGN_KEY_BASE64 / SIGN_KEY_PWD / SIGN_KEY_ALIAS（值和输入法仓库的一样）
       - name: Build debug + release APKs (完整版 + 无过敏记录版)
         working-directory: android
+        env:
+          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
+          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
+          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
         run: |
+          if [ -z "$SIGN_KEY_BASE64" ]; then
+            echo "::warning::没有设置 SIGN_KEY_BASE64，正式版用调试签名"
+          fi
           chmod +x gradlew
           ./gradlew assembleDebug assembleRelease
 
