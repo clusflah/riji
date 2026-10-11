@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Health Connect 库要求 Android 8.0+；App 仍支持 7.x：在 7.x 上不显示同步功能，代码里也有版本判断 -->
+    <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
+    <!-- Health Connect：只读身体数据（心率、睡眠、体重、身高、体脂、血压、血氧） -->
+    <uses-permission android:name="android.permission.health.READ_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_RESTING_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.READ_SLEEP" />
+    <uses-permission android:name="android.permission.health.READ_WEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_HEIGHT" />
+    <uses-permission android:name="android.permission.health.READ_BODY_FAT" />
+    <uses-permission android:name="android.permission.health.READ_BLOOD_PRESSURE" />
+    <uses-permission android:name="android.permission.health.READ_OXYGEN_SATURATION" />
+    <!-- Health Connect 后台自动同步（较新的系统才支持；没有的话只在打开 App 时同步） -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 原生 Kotlin 化 阶段二：本地通知需要 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- 准时提醒 / 闹钟：
+         安卓 12 用 SCHEDULE_EXACT_ALARM（装上就有）；
+         安卓 13 起用 USE_EXACT_ALARM（闹钟、日历类 App 专用，装上自动获得、不会被收回）。
+         以前只申请了前者，安卓 14 新装的 App 默认拿不到，提醒和闹钟会退回成“大概时间”，可能晚很久。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- “提醒检查”里一键申请不被省电策略限制 -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- AI 助手：按住说话 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- 安卓 11 起要声明才能找到手机上的语音识别服务（不声明的话会以为没有） -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <!-- Health Connect：安卓 13 及以下是单独的 App，要声明才能找到 -->
+        <package android:name="com.google.android.apps.healthdata" />
+        <!-- 手机自带朗读：安卓 11 起要声明才能找到系统的朗读引擎 -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 原生 Kotlin 化 阶段三：日记“添加位置”用的GPS -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/AppTheme">
+
+        <!-- 主界面：桌面图标打开的就是它；小组件、闹钟点击后也进这里 -->
+        <activity
+            android:name=".MainActivityCompose"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBar"
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustResize"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Health Connect 要求：说明为什么要读健康数据（安卓 13 及以下 / 14 及以上两种入口） -->
+        <activity
+            android:name=".health.HealthRationaleActivity"
+            android:exported="true"
+            android:label="日迹 · 健康数据说明">
+            <intent-filter>
+                <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
+            </intent-filter>
+        </activity>
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:targetActivity=".health.HealthRationaleActivity"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- OneDrive 登录：浏览器登录完跳回 rijii://onedrive-auth -->
+        <activity
+            android:name=".cloud.OAuthRedirectActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="rijii" android:host="onedrive-auth" />
+            </intent-filter>
+        </activity>
+
+        <!-- 日记附件：打开附件时临时授权给别的 App 读取 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/diary_file_paths" />
+        </provider>
+
+        <receiver android:name=".AlarmReceiver" android:exported="false" />
+
+        <!-- 原生 Kotlin 化 阶段二：生日/提醒通知 -->
+        <receiver android:name=".notify.NotifyReceiver" android:exported="false" />
+        <!-- 提醒通知上的“完成 / 稍后提醒”按钮 -->
+        <receiver android:name=".notify.ReminderActionReceiver" android:exported="false" />
+        <!-- 用药提醒：到点通知、通知上的“已服用 / 跳过 / 10 分钟后” -->
+        <receiver android:name=".notify.MedReceiver" android:exported="false" />
+        <receiver android:name=".notify.ReminderBootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".AlarmService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <activity
+            android:name=".AlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+        <receiver
+            android:name=".LiWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.birthdayreminder.WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_provider_info" />
+        </receiver>
+
+        <receiver
+            android:name=".LiWidgetProvider2x2"
+            android:exported="false"
+            android:label="@string/widget_label_2x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.birthdayreminder.WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_provider_info_2x2" />
+        </receiver>
+
+        <receiver
+            android:name=".LiWidgetProvider4x2"
+            android:exported="false"
+            android:label="@string/widget_label_4x2">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="app.birthdayreminder.WIDGET_REFRESH" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_provider_info_4x2" />
+        </receiver>
+
+        <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+    </application>
+
+    <!-- Permissions -->
+
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>

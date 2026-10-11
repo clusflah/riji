@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 月历小组件：有提醒/生日那天的下划线，颜色比以前淡 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:gravity="bottom|center_horizontal" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <size android:width="10dp" android:height="2dp" />
+            <solid android:color="@color/wc_event_line" />
+            <corners android:radius="1dp" />
+        </shape>
+    </item>
+</layer-list>

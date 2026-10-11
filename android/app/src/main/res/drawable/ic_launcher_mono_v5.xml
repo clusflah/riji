@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日迹的图标（方案 5）：单色版（Android 13 起“主题图标”用，系统会按壁纸配色上色）。由 SVG 母版换算成矢量，任何尺寸都清晰 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <path android:pathData="M77.61,40.91 A27.0,27.0 0 1,1 67.09,30.39" android:strokeWidth="2.4" android:strokeColor="#FFFFFFFF" android:fillColor="#00000000"/>
+    <path android:pathData="M54.00,39.40 Q57.50,50.50 68.60,54.00 Q57.50,57.50 54.00,68.60 Q50.50,57.50 39.40,54.00 Q50.50,50.50 54.00,39.40 Z" android:fillColor="#FFFFFFFF"/>
+    <path android:pathData="M73.09,30.31 Q74.20,33.80 77.69,34.91 Q74.20,36.01 73.09,39.51 Q71.99,36.01 68.49,34.91 Q71.99,33.80 73.09,30.31 Z" android:fillColor="#FFFFFFFF"/>
+</vector>

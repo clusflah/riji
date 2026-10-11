@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日记附件：只开放 App 私有目录里的 diary_files 文件夹给别的 App 临时读取（打开附件时用） -->
+<paths>
+    <files-path name="diary_files" path="diary_files/" />
+</paths>

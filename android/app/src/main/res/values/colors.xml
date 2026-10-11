@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 应用主题用的三个颜色（以前是 Capacitor 库顺带提供的，现在自己定义，用 App 的主色） -->
+    <color name="colorPrimary">#FFFF4D6D</color>
+    <color name="colorPrimaryDark">#FFD93A5F</color>
+    <color name="colorAccent">#FFFF4D6D</color>
+
+    <color name="widget_bg">#FFF7F3F4</color>
+    <color name="widget_text">#FF33262A</color>
+    <color name="widget_muted">#FF8E7B80</color>
+    <color name="widget_accent">#FF4A90E2</color>
+    <color name="widget_chip_bg">#FFE8F2FC</color>
+
+    <!-- 小组件新样式（wc_ 前缀） -->
+    <color name="wc_card">#FFF6F6F8</color>
+    <color name="wc_text">#FF1C1C1E</color>
+    <color name="wc_muted">#FF8A8A8F</color>
+    <color name="wc_divider">#FFD1D1D6</color>
+    <!-- 月历小组件：“今天”圆圈和事件下划线用 App 主蓝色（下划线半透明，比今天的圆淡）；各类事件颜色和 App 里的圆点、图标一致 -->
+    <color name="wc_event_line">#664A90E2</color>
+    <color name="wc_red">#FF4A90E2</color>
+    <color name="wc_chip_holiday_bg">#FFFDEEDD</color>
+    <color name="wc_chip_holiday_fg">#FFB8641A</color>
+    <color name="wc_chip_holiday_dot">#FFF2994A</color>
+    <color name="wc_chip_birthday_bg">#FFFDE8E1</color>
+    <color name="wc_chip_birthday_fg">#FFC2553A</color>
+    <color name="wc_chip_birthday_dot">#FFF28A6B</color>
+    <color name="wc_chip_reminder_bg">#FFEEEAFC</color>
+    <color name="wc_chip_reminder_fg">#FF6450C8</color>
+    <color name="wc_chip_reminder_dot">#FF8B7BE6</color>
+    <color name="wc_chip_alarm_bg">#FFE3EEFB</color>
+    <color name="wc_chip_alarm_fg">#FF2F6FB8</color>
+    <color name="wc_chip_alarm_dot">#FF4A90E2</color>
+    <color name="wc_chip_diary_bg">#FFE3EEFB</color>
+    <color name="wc_chip_diary_fg">#FF2F6FB8</color>
+    <color name="wc_chip_diary_dot">#FF4A90E2</color>
+    <color name="wc_chip_work_bg">#FFE9ECF1</color>
+    <color name="wc_chip_work_fg">#FF4F5B6C</color>
+    <color name="wc_chip_work_dot">#FF6B7A90</color>
+</resources>

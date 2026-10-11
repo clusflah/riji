@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_bg">#FF232026</color>
+    <color name="widget_text">#FFF0E8EA</color>
+    <color name="widget_muted">#FFB2A3A8</color>
+    <color name="widget_accent">#FF6AA8F0</color>
+    <color name="widget_chip_bg">#FF1F3550</color>
+
+    <!-- 小组件新样式（wc_ 前缀） -->
+    <color name="wc_card">#FF1C1C1E</color>
+    <color name="wc_text">#FFFFFFFF</color>
+    <color name="wc_muted">#FF98989D</color>
+    <color name="wc_divider">#FF48484A</color>
+    <!-- 月历小组件事件下划线：红色但半透明，比“今天”的红圆淡 -->
+    <color name="wc_event_line">#736AA8F0</color>
+    <color name="wc_red">#FF6AA8F0</color>
+    <color name="wc_chip_holiday_bg">#FF47331F</color>
+    <color name="wc_chip_holiday_fg">#FFF7B26E</color>
+    <color name="wc_chip_holiday_dot">#FFF2994A</color>
+    <color name="wc_chip_birthday_bg">#FF4A2B22</color>
+    <color name="wc_chip_birthday_fg">#FFFF9F85</color>
+    <color name="wc_chip_birthday_dot">#FFF28A6B</color>
+    <color name="wc_chip_reminder_bg">#FF2E2A4A</color>
+    <color name="wc_chip_reminder_fg">#FFB3A6F5</color>
+    <color name="wc_chip_reminder_dot">#FF8B7BE6</color>
+    <color name="wc_chip_alarm_bg">#FF1F3550</color>
+    <color name="wc_chip_alarm_fg">#FF8DBAF0</color>
+    <color name="wc_chip_alarm_dot">#FF4A90E2</color>
+    <color name="wc_chip_diary_bg">#FF1F3550</color>
+    <color name="wc_chip_diary_fg">#FF8DBAF0</color>
+    <color name="wc_chip_diary_dot">#FF4A90E2</color>
+    <color name="wc_chip_work_bg">#FF2C323B</color>
+    <color name="wc_chip_work_fg">#FFB7C1CF</color>
+    <color name="wc_chip_work_dot">#FF6B7A90</color>
+</resources>

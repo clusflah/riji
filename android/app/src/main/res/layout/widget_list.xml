@@ -1,0 +1,796 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/wc_card_bg"
+    android:padding="14dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/w_icon"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="6dp"
+            android:includeFontPadding="false"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/w_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="12sp"
+            android:textColor="@color/wc_muted" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/w_empty"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:textSize="14sp"
+        android:textColor="@color/wc_muted"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/ls_i1_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i1_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i1_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i1_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i1_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i1_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i1_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i1_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i1_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i1_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ls_i2_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i2_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i2_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i2_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i2_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i2_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i2_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i2_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i2_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i2_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ls_i3_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i3_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i3_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i3_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i3_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i3_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i3_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i3_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i3_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i3_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ls_i4_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i4_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i4_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i4_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i4_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i4_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i4_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i4_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i4_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i4_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ls_i5_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i5_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i5_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i5_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i5_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i5_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i5_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i5_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i5_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i5_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ls_i6_wrap"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/ls_i6_date"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:textSize="10.5sp"
+            android:textColor="@color/wc_muted" />
+
+        <LinearLayout
+            android:id="@+id/ls_i6_chip"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="8dp"
+            android:paddingTop="3dp"
+            android:paddingBottom="3dp"
+            android:background="@drawable/wc_chip_holiday">
+
+            <ImageView
+                android:id="@+id/ls_i6_dot"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:padding="3.5dp"
+                android:scaleType="centerInside"
+                android:src="@drawable/wc_ic_cal"
+                android:background="@drawable/wc_dot_holiday" />
+
+            <TextView
+                android:id="@+id/ls_i6_t0"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_holiday_fg"
+                android:visibility="visible" />
+
+            <TextView
+                android:id="@+id/ls_i6_t1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_birthday_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i6_t2"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_reminder_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i6_t3"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_alarm_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i6_t4"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_diary_fg"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/ls_i6_t5"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:includeFontPadding="false"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/wc_chip_work_fg"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>

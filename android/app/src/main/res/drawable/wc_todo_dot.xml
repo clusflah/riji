@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 提醒小组件：有日期的提醒前面的实心小圆点 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <size android:width="10dp" android:height="10dp" />
+    <solid android:color="@color/wc_chip_reminder_dot" />
+</shape>

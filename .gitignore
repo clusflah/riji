@@ -1,0 +1,27 @@
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Gradle / Kotlin build outputs
+android/.gradle/
+android/.kotlin/
+android/build/
+android/app/build/
+
+# 本机配置（SDK 路径等）
+android/local.properties
+
+# 签名文件和密钥：不要提交
+*.jks
+*.keystore
+keystore.properties
+
+# 打包产物
+*.apk
+*.aab
+
+# 系统文件
+.DS_Store
+Thumbs.db
+desktop.ini

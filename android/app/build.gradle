@@ -1,0 +1,114 @@
+apply plugin: 'com.android.application'
+apply plugin: 'org.jetbrains.kotlin.android'
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+apply plugin: 'kotlin-kapt'
+
+android {
+    namespace = "app.birthdayreminder"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "app.birthdayreminder"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode 8 // 保持不变：需要回退到之前的版本时，系统不会当成降级而拒绝安装
+        versionName "1.5.7" // 每次更新往上加：修复和小改动加最后一位（1.0.1），新功能加中间一位（1.1.0）
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    buildTypes {
+        // 日常使用请装正式版（Build Variants 里选 fullRelease）：不可调试，系统会完整编译优化，滑动比调试版流畅很多。
+        // 用和调试版相同的签名，所以可以直接覆盖安装调试版，数据都保留。
+        release {
+            signingConfig signingConfigs.debug
+            debuggable false
+            minifyEnabled false      // 不压缩代码，避免误伤用到反射的功能
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+    // 打正式版时不因代码风格检查而中断（这些检查不影响功能）
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+    buildFeatures {
+        compose true
+        buildConfig true      // 让代码能读到下面每个版本的开关
+    }
+
+    // 两个版本，同一份代码：
+    //   full       完整版（默认）
+    //   noAllergy  无过敏记录版：去掉“过敏记录”入口，其它完全一样（应用名、图标、包名都相同）
+    // 在 Android Studio 左边栏 Build Variants 里切换，打出来的 APK 分别叫 app-full-xxx.apk / app-noAllergy-xxx.apk
+    flavorDimensions "edition"
+    productFlavors {
+        full {
+            dimension "edition"
+            buildConfigField "boolean", "SHOW_ALLERGY", "true"
+        }
+        noAllergy {
+            dimension "edition"
+            buildConfigField "boolean", "SHOW_ALLERGY", "false"
+        }
+    }
+    compileOptions {
+        // 让 Android 7.x（API 24/25）也能用 java.time 等 Java 新库（日期计算到处都用到）。
+        // 不开的话，这些手机一用到日期就会闪退
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+    // 旧版网页界面的资源（src/main/assets）已经不用了；即使这个文件夹还留在你的电脑上，也不要打进 APK
+    sourceSets {
+        main {
+            assets.srcDirs = []
+        }
+    }
+}
+
+// 强制 Room 的注解处理（kapt）每次构建都重新跑，不允许被判成 UP-TO-DATE 而跳过。
+// 否则改了 Dao 之后，旧的 DaoImpl.java 会留着，报“未覆盖抽象方法”。
+tasks.configureEach { task ->
+    if (task.name.startsWith('kapt') && task.name.endsWith('Kotlin') && !task.name.contains('GenerateStubs')) {
+        task.outputs.upToDateWhen { false }
+    }
+}
+
+dependencies {
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    // 以前这两个的版本是 Capacitor 间接拉进来的，现在显式写出来，保持和之前一致
+    implementation "androidx.core:core:$androidxCoreVersion"
+    implementation "androidx.activity:activity:$androidxActivityVersion"
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+
+    // ---- 界面（Compose）/ 数据库（Room）/ 图片 / JSON ----
+    def composeBom = platform('androidx.compose:compose-bom:2024.12.01')
+    implementation composeBom
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.material3:material3'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
+    implementation 'androidx.compose.material:material-icons-extended'
+    implementation 'androidx.activity:activity-compose:1.9.3'
+    implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
+    implementation 'androidx.navigation:navigation-compose:2.8.5'
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.7'
+    implementation 'androidx.room:room-runtime:2.7.1'
+    implementation 'androidx.room:room-ktx:2.7.1'
+    kapt 'androidx.room:room-compiler:2.7.1'
+    implementation 'io.coil-kt:coil-compose:2.6.0'
+    // 云盘备份（OneDrive / WebDAV）用的网络库；和 Coil 自带的是同一个版本
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.google.code.gson:gson:2.10.1'
+    // Health Connect：Android 官方的开放健康数据接口，读手环 / 手表 / 体脂秤写进来的心率、睡眠、体重等（只读）
+    implementation 'androidx.health.connect:connect-client:1.1.0'
+    // 后台定时任务（Health Connect 后台自动同步）
+    implementation 'androidx.work:work-runtime-ktx:2.9.1'
+    // 配合上面的 coreLibraryDesugaringEnabled：把 java.time 等新库打包进 App
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+    // 隐私空间：用指纹 / 手机锁屏密码验证
+    implementation 'androidx.biometric:biometric:1.1.0'
+}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 日迹的图标（方案 5）：背景 —— 米白渐变（左上略亮、右下带一点青灰）。由 SVG 母版换算成矢量，任何尺寸都清晰 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="30" android:startY="10" android:endX="80" android:endY="104">
+                <item android:offset="0" android:color="#FFFBFAF7"/>
+                <item android:offset="0.55" android:color="#FFF1F3F1"/>
+                <item android:offset="1" android:color="#FFDCE6E6"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M0,0 H108 V108 H0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="38.00" android:centerY="28.00" android:gradientRadius="44.00">
+                <item android:offset="0" android:color="#B3FFFFFF"/>
+                <item android:offset="1" android:color="#00FFFFFF"/>
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>
