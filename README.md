@@ -8,6 +8,16 @@
 农历日历 + 节假日/调休 + 生日、提醒事项、闹钟、日记、常用语 + 健身、过敏、用药就医、生理期 + 隐私空间 + AI 助手 + 桌面小组件 + 云盘备份。
 纯原生：Kotlin + Jetpack Compose + Room，没有网页界面，也不再依赖 Capacitor / Node。
 
+## 截图
+
+| 日历首页 · 全部 | 日历首页 · 提醒 | 往上滑收成一周 · 常用语 |
+|---|---|---|
+| <img src="docs/screenshots/calendar-all.jpg" width="240" alt="日历首页：月视图、农历、节假日和调休，下方“全部”时间轴"> | <img src="docs/screenshots/calendar-reminders.jpg" width="240" alt="日历首页：提醒标签里的待办，可打勾完成"> | <img src="docs/screenshots/calendar-phrases.jpg" width="240" alt="月历收成一周，常用语按分类分组、一键复制"> |
+
+| AI 助手 | 设置 |
+|---|---|
+| <img src="docs/screenshots/ai-assistant.jpg" width="240" alt="AI 助手：读取本周数据做总结，支持语音输入和朗读"> | <img src="docs/screenshots/settings.jpg" width="240" alt="设置：农历、节日节气、每周开始、外观、通知、提醒检查、功能开关、备份"> |
+
 ## 下载
 
 在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建，下载 `birthday-reminder-apk`，里面有完整版和无过敏记录版两个 APK。
