@@ -65,14 +65,22 @@ data class MedicalRecord(
 /**
  * 生理期的每日记录（一天一条）。flow：0 无、1 点滴、2 少、3 中、4 多（2 及以上算经期）。
  * symptoms = 症状键的 JSON 列表。功能设计参考开源项目 Mooneva Cycle（只参考功能，没有复制代码）。
+ * profile = 这条记录属于哪一份数据：外面的是 ""，隐私空间里的是 CycleProfiles.PRIVATE，两份完全独立（同一天可以各有一条）。
  */
-@Entity(tableName = "cycle_days")
+@Entity(tableName = "cycle_days", primaryKeys = ["profile", "date"])
 data class CycleDay(
-    @PrimaryKey val date: String,
+    val date: String,
     val flow: Int = 0,
     val symptoms: String = "",
     val mood: String = "",
     val discharge: String = "",
     val note: String = "",
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val profile: String = CycleProfiles.MAIN
 )
+
+/** 生理期数据分几份：外面一份，隐私空间一份；以后要分角色，再加别的值就行 */
+object CycleProfiles {
+    const val MAIN = ""
+    const val PRIVATE = "private"
+}

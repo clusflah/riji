@@ -150,14 +150,17 @@ object Prefs {
 
     // ---------------- 生理期 ----------------
     private fun sp(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    // 外面（profile = ""）用原来的键；隐私空间那份数据的设置另存一套（键后面加 _profile），互不影响。
+    // 键名只能用字母数字和 _ . -，否则恢复备份时会被当成不合法的键丢掉
+    private fun k(base: String, profile: String) = if (profile.isEmpty()) base else "${base}_$profile"
     /** 避孕模式：不显示、不提醒易孕期和排卵日 */
-    fun cycleBirthControl(ctx: Context) = sp(ctx).getBoolean("cycleBC", false)
-    fun setCycleBirthControl(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("cycleBC", v).apply()
+    fun cycleBirthControl(ctx: Context, profile: String = "") = sp(ctx).getBoolean(k("cycleBC", profile), false)
+    fun setCycleBirthControl(ctx: Context, v: Boolean, profile: String = "") = sp(ctx).edit().putBoolean(k("cycleBC", profile), v).apply()
     /** 没有足够记录时用的默认周期 / 经期天数 */
-    fun cycleDefaultLength(ctx: Context) = sp(ctx).getInt("cycleLen", 28)
-    fun setCycleDefaultLength(ctx: Context, v: Int) = sp(ctx).edit().putInt("cycleLen", v.coerceIn(15, 60)).apply()
-    fun cycleDefaultPeriod(ctx: Context) = sp(ctx).getInt("cyclePeriod", 5)
-    fun setCycleDefaultPeriod(ctx: Context, v: Int) = sp(ctx).edit().putInt("cyclePeriod", v.coerceIn(1, 12)).apply()
+    fun cycleDefaultLength(ctx: Context, profile: String = "") = sp(ctx).getInt(k("cycleLen", profile), 28)
+    fun setCycleDefaultLength(ctx: Context, v: Int, profile: String = "") = sp(ctx).edit().putInt(k("cycleLen", profile), v.coerceIn(15, 60)).apply()
+    fun cycleDefaultPeriod(ctx: Context, profile: String = "") = sp(ctx).getInt(k("cyclePeriod", profile), 5)
+    fun setCycleDefaultPeriod(ctx: Context, v: Int, profile: String = "") = sp(ctx).edit().putInt(k("cyclePeriod", profile), v.coerceIn(1, 12)).apply()
     /** 经期前几天提醒（0 = 不提醒） */
     fun cycleRemindBefore(ctx: Context) = sp(ctx).getInt("cycleBefore", 2)
     fun setCycleRemindBefore(ctx: Context, v: Int) = sp(ctx).edit().putInt("cycleBefore", v.coerceIn(0, 7)).apply()
@@ -166,8 +169,8 @@ object Prefs {
     fun cycleRemindOvulation(ctx: Context) = sp(ctx).getBoolean("cycleOv", false)
     fun setCycleRemindOvulation(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("cycleOv", v).apply()
     /** 避孕药：用的是“用药就医”里的哪种药 */
-    fun pillMedId(ctx: Context) = sp(ctx).getString("pillMed", "") ?: ""
-    fun setPillMedId(ctx: Context, v: String) = sp(ctx).edit().putString("pillMed", v).apply()
+    fun pillMedId(ctx: Context, profile: String = "") = sp(ctx).getString(k("pillMed", profile), "") ?: ""
+    fun setPillMedId(ctx: Context, v: String, profile: String = "") = sp(ctx).edit().putString(k("pillMed", profile), v).apply()
 
     /** 高刷新率（默认开） */
     fun highRefresh(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean("highRefresh", true)

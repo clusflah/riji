@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.5.8**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
+**版本 1.6.0**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
 
 农历日历 + 节假日/调休 + 生日、提醒事项、闹钟、日记、常用语 + 健身、过敏、用药就医、生理期 + 隐私空间 + AI 助手 + 桌面小组件 + 云盘备份。
 纯原生：Kotlin + Jetpack Compose + Room，没有网页界面，也不再依赖 Capacitor / Node。
@@ -128,7 +128,7 @@ ui/         Compose 界面：calendar / edit / list / alarm / diary / phrase / h
 
 ## 数据
 
-- 本地数据库 `li-native.db`（Room，数据库第 9 版，升级都写了正式迁移，不会清数据）。
+- 本地数据库 `li-native.db`（Room，数据库第 10 版，升级都写了正式迁移，不会清数据）。
 - 日记图片存在应用私有目录 `files/diary_images/`，闹钟铃声在 `files/alarm_sounds/`。
 - 备份是 `.zip`：`backup.json`（全部数据、设置和 Key）+ 图片、附件、自定义铃声文件。
   旧的 `.json` 备份（包括以前网页版“历”导出的）也能恢复。

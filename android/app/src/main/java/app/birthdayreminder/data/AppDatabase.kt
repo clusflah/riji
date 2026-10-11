@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Birthday::class, Reminder::class, DiaryEntity::class, Alarm::class, Phrase::class, AllergyLog::class, FitnessLog::class, Medication::class, MedLog::class, MedicalRecord::class, CycleDay::class],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -126,13 +126,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 9 -> 10：生理期记录分成外面和隐私空间两份（主键改成 份 + 日期），已有的记录都归外面那份 */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `cycle_days_new` (" +
+                        "`date` TEXT NOT NULL, `flow` INTEGER NOT NULL, `symptoms` TEXT NOT NULL, `mood` TEXT NOT NULL, " +
+                        "`discharge` TEXT NOT NULL, `note` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, `profile` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`profile`, `date`))"
+                )
+                db.execSQL(
+                    "INSERT INTO `cycle_days_new` (`date`, `flow`, `symptoms`, `mood`, `discharge`, `note`, `updatedAt`, `profile`) " +
+                        "SELECT `date`, `flow`, `symptoms`, `mood`, `discharge`, `note`, `updatedAt`, '' FROM `cycle_days`"
+                )
+                db.execSQL("DROP TABLE `cycle_days`")
+                db.execSQL("ALTER TABLE `cycle_days_new` RENAME TO `cycle_days`")
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "li-native.db" // 特意用新文件名，不会和 App 现有的 localStorage/JSON 数据冲突或互相覆盖
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { instance = it }
             }
     }
 }

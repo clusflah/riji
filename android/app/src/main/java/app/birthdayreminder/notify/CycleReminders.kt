@@ -1,5 +1,6 @@
 package app.birthdayreminder.notify
 
+import app.birthdayreminder.data.CycleProfiles
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
@@ -34,7 +35,7 @@ object CycleScheduler {
         }
         if (!Prefs.moduleOn(app, Modules.CYCLE)) { sp.edit().putInt("count", 0).apply(); return }
         val today = LocalDate.now()
-        val days = AppDatabase.get(app).cycleDao().getAll()
+        val days = AppDatabase.get(app).cycleDao().getAll(CycleProfiles.MAIN)   // 只提醒外面那份；隐私空间的不发通知
         val ps = CycleLogic.periods(days)
         val st = CycleLogic.stats(ps, Prefs.cycleDefaultLength(app), Prefs.cycleDefaultPeriod(app))
         val alerts = CycleLogic.alerts(CycleLogic.predict(ps, st, today), today, Prefs.cycleRemindBefore(app),

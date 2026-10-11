@@ -272,7 +272,7 @@ class MainActivityCompose : FragmentActivity() {
                                     5 -> nav.navigate("allergy?date=$d&private=1")
                                     6 -> nav.navigate("alarm/new?private=1")
                                     7 -> nav.navigate("med/new?private=1")
-                                    else -> nav.navigate("visit/new?private=1")
+                                    else -> nav.navigate("visit/new?private=1")      // PRIVACY_NEW_VISIT（就医记录）
                                 }
                             },
                             onEditDiary = { id -> nav.navigate("diary/$id") },

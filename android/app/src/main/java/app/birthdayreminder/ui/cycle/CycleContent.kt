@@ -67,7 +67,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import app.birthdayreminder.data.CycleDay
+import app.birthdayreminder.data.CycleProfiles
 import app.birthdayreminder.data.Medication
 import app.birthdayreminder.domain.CycleLogic
 import app.birthdayreminder.domain.CycleLogic.Mark
@@ -97,6 +100,15 @@ private val MISS_ORANGE = Color(0xFFE08A1E)
  * “生理期”（全部页里的一个标签）：今天 / 日历 / 趋势 / 避孕药。
  * 功能设计参考开源项目 Mooneva Cycle（GPL-3.0，只参考功能、没有复制代码），避孕药部分参照之前对 Mooneva 做的改进。
  */
+/** 某一份生理期数据的 ViewModel（外面和隐私空间各一个，互不影响） */
+@Composable
+fun rememberCycleViewModel(profile: String): CycleViewModel {
+    val app = LocalContext.current.applicationContext as android.app.Application
+    return viewModel(key = "cycle_$profile", factory = viewModelFactory {
+        initializer { CycleViewModel(app, profile) }
+    })
+}
+
 @Composable
 fun CycleContent(vm: CycleViewModel = viewModel()) {
     var sub by rememberSaveable { mutableIntStateOf(0) }
@@ -117,17 +129,17 @@ fun CycleContent(vm: CycleViewModel = viewModel()) {
         }
     }
     editDate?.let { d -> DayEditor(vm, d, onDismiss = { editDate = null }) }
-    if (showSettings) CycleSettingsDialog(onDismiss = { showSettings = false; settingsTick++ })
+    if (showSettings) CycleSettingsDialog(vm.profile, onDismiss = { showSettings = false; settingsTick++ })
 }
 
 /** 当前预测（用设置里的默认周期、避孕模式） */
 @Composable
-private fun rememberPrediction(days: List<CycleDay>, today: LocalDate, tick: Int): Triple<CycleLogic.Stats, CycleLogic.Prediction?, Boolean> {
+private fun rememberPrediction(profile: String, days: List<CycleDay>, today: LocalDate, tick: Int): Triple<CycleLogic.Stats, CycleLogic.Prediction?, Boolean> {
     val ctx = LocalContext.current
     return remember(days, today, tick) {
         val ps = CycleLogic.periods(days)
-        val st = CycleLogic.stats(ps, Prefs.cycleDefaultLength(ctx), Prefs.cycleDefaultPeriod(ctx))
-        Triple(st, CycleLogic.predict(ps, st, today), Prefs.cycleBirthControl(ctx))
+        val st = CycleLogic.stats(ps, Prefs.cycleDefaultLength(ctx, profile), Prefs.cycleDefaultPeriod(ctx, profile))
+        Triple(st, CycleLogic.predict(ps, st, today), Prefs.cycleBirthControl(ctx, profile))
     }
 }
 
@@ -135,13 +147,14 @@ private fun rememberPrediction(days: List<CycleDay>, today: LocalDate, tick: Int
 @Composable
 private fun TodayPage(vm: CycleViewModel, now: LocalDateTime, tick: Int, onEdit: (LocalDate) -> Unit, onSettings: () -> Unit, onPillTab: () -> Unit) {
     val ctx = LocalContext.current
+    val profile = vm.profile
     val days by vm.days.collectAsState()
     val meds by vm.meds.collectAsState()
     val logs by vm.logs.collectAsState()
     val today = now.toLocalDate()
-    val (st, pr, bc) = rememberPrediction(days, today, tick)
+    val (st, pr, bc) = rememberPrediction(profile, days, today, tick)
     val todayRec = days.firstOrNull { it.date == today.toString() }
-    val pill = meds.firstOrNull { it.id == Prefs.pillMedId(ctx) }
+    val pill = meds.firstOrNull { it.id == Prefs.pillMedId(ctx, profile) }
     LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
         item {
             SoftCard(modifier = Modifier.fillMaxWidth()) {
@@ -159,7 +172,7 @@ private fun TodayPage(vm: CycleViewModel, now: LocalDateTime, tick: Int, onEdit:
                         OutlinedButton(onClick = { onEdit(today) }) { Text(if (todayRec == null) "记录今天" else "修改今天") }
                     }
                     todayRec?.let { Text("今天：" + CycleLogic.daySummary(it), style = MaterialTheme.typography.bodySmall) }
-                    TextButton(onClick = onSettings) { Text("⚙ 生理期设置（避孕模式、提醒、默认周期）") }
+                    TextButton(onClick = onSettings) { Text(if (profile == CycleProfiles.MAIN) "⚙ 生理期设置（避孕模式、提醒、默认周期）" else "⚙ 生理期设置（避孕模式、默认周期）") }
                 }
             }
         }
@@ -267,10 +280,11 @@ private fun MonthGrid(month: YearMonth, cell: @Composable (LocalDate) -> Unit) {
 @Composable
 private fun CalendarPage(vm: CycleViewModel, today: LocalDate, tick: Int, onEdit: (LocalDate) -> Unit) {
     val ctx = LocalContext.current
+    val profile = vm.profile
     val days by vm.days.collectAsState()
     var month by remember { mutableStateOf(YearMonth.from(today)) }
     val marks = remember(days, month, tick) {
-        CycleLogic.marks(days, month.atDay(1), month.atEndOfMonth(), today, Prefs.cycleBirthControl(ctx), Prefs.cycleDefaultLength(ctx), Prefs.cycleDefaultPeriod(ctx))
+        CycleLogic.marks(days, month.atDay(1), month.atEndOfMonth(), today, Prefs.cycleBirthControl(ctx, profile), Prefs.cycleDefaultLength(ctx, profile), Prefs.cycleDefaultPeriod(ctx, profile))
     }
     val recorded = remember(days) { days.map { it.date }.toSet() }
     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
@@ -296,7 +310,7 @@ private fun CalendarPage(vm: CycleViewModel, today: LocalDate, tick: Int, onEdit
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(16.dp).horizontalScroll(rememberScrollState())) {
             Legend(Modifier.background(PERIOD_RED), "经期")
             Legend(Modifier.border(1.5.dp, PERIOD_RED, CircleShape), "预测经期")
-            if (!Prefs.cycleBirthControl(ctx)) {
+            if (!Prefs.cycleBirthControl(ctx, profile)) {
                 Legend(Modifier.background(FERTILE_GREEN.copy(alpha = 0.18f)), "易孕期")
                 Legend(Modifier.background(FERTILE_GREEN), "排卵日")
             }
@@ -319,7 +333,7 @@ private fun TrendsPage(vm: CycleViewModel, today: LocalDate, tick: Int) {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val days by vm.days.collectAsState()
-    val (st, _, _) = rememberPrediction(days, today, tick)
+    val (st, _, _) = rememberPrediction(vm.profile, days, today, tick)
     val hist = remember(days) { CycleLogic.history(CycleLogic.periods(days)) }
     val syms = remember(days, today) { CycleLogic.symptomCounts(days, today.minusDays(89), today) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
@@ -359,18 +373,20 @@ private fun TrendsPage(vm: CycleViewModel, today: LocalDate, tick: Int) {
 @Composable
 private fun PillPage(vm: CycleViewModel, now: LocalDateTime) {
     val ctx = LocalContext.current
+    val profile = vm.profile
     val meds by vm.meds.collectAsState()
     val logs by vm.logs.collectAsState()
-    var pillId by remember { mutableStateOf(Prefs.pillMedId(ctx)) }
+    var pillId by remember { mutableStateOf(Prefs.pillMedId(ctx, profile)) }
     val pill = meds.firstOrNull { it.id == pillId }
     var month by remember { mutableStateOf(YearMonth.from(now.toLocalDate())) }
     var editDay by remember { mutableStateOf<LocalDate?>(null) }
     Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(bottom = 100.dp)) {
-        Text("选哪种药作为避孕药（在“用药就医 → 药品”里添加，重复方式选“吃几天停几天”，比如吃 21 停 7）",
+        Text((if (profile == CycleProfiles.MAIN) "选哪种药作为避孕药（在“用药就医 → 药品”里添加" else "选哪种药作为避孕药（在隐私空间的“用药就医”里添加") +
+            "，重复方式选“吃几天停几天”，比如吃 21 停 7）",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState())) {
             if (meds.isEmpty()) Text("还没有药品", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            meds.forEach { m -> FilterChip(selected = m.id == pillId, onClick = { pillId = m.id; Prefs.setPillMedId(ctx, m.id) }, label = { Text(m.name) }) }
+            meds.forEach { m -> FilterChip(selected = m.id == pillId, onClick = { pillId = m.id; Prefs.setPillMedId(ctx, m.id, profile) }, label = { Text(m.name) }) }
         }
         if (pill == null) return@Column
         Box(Modifier.padding(top = 8.dp)) { PillCard(vm, pill, logs, now, onMore = {}) }
@@ -490,11 +506,13 @@ private fun ChipFlow(items: List<Pair<String, String>>, selected: (String) -> Bo
 
 // ---------------------------------------------------------------- 设置
 @Composable
-private fun CycleSettingsDialog(onDismiss: () -> Unit) {
+private fun CycleSettingsDialog(profile: String, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
-    var bc by remember { mutableStateOf(Prefs.cycleBirthControl(ctx)) }
-    var len by remember { mutableStateOf(Prefs.cycleDefaultLength(ctx).toString()) }
-    var per by remember { mutableStateOf(Prefs.cycleDefaultPeriod(ctx).toString()) }
+    // 隐私空间那份不发通知（通知会在锁屏、通知栏露出来），所以没有提醒设置
+    val canRemind = profile == CycleProfiles.MAIN
+    var bc by remember { mutableStateOf(Prefs.cycleBirthControl(ctx, profile)) }
+    var len by remember { mutableStateOf(Prefs.cycleDefaultLength(ctx, profile).toString()) }
+    var per by remember { mutableStateOf(Prefs.cycleDefaultPeriod(ctx, profile).toString()) }
     var before by remember { mutableIntStateOf(Prefs.cycleRemindBefore(ctx)) }
     var pms by remember { mutableStateOf(Prefs.cycleRemindPms(ctx)) }
     var ov by remember { mutableStateOf(Prefs.cycleRemindOvulation(ctx)) }
@@ -514,6 +532,9 @@ private fun CycleSettingsDialog(onDismiss: () -> Unit) {
                         label = { Text("经期天数") }, modifier = Modifier.weight(1f))
                 }
                 HorizontalDivider()
+                if (!canRemind) Text("隐私空间里的生理期不发提醒通知，免得在锁屏和通知栏露出来。", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else {
                 Text("提醒（早上 9 点）", style = MaterialTheme.typography.labelLarge)
                 Text("经期前几天提醒", style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
@@ -521,15 +542,18 @@ private fun CycleSettingsDialog(onDismiss: () -> Unit) {
                 }
                 SwitchLine("经前期提醒", "经期前 5 天", pms) { v -> pms = v }
                 SwitchLine("排卵日提醒", if (bc) "避孕模式下不提醒" else "按平均周期估算，仅供参考", ov) { v -> ov = v }
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                Prefs.setCycleBirthControl(ctx, bc)
-                len.toIntOrNull()?.let { Prefs.setCycleDefaultLength(ctx, it) }
-                per.toIntOrNull()?.let { Prefs.setCycleDefaultPeriod(ctx, it) }
-                Prefs.setCycleRemindBefore(ctx, before); Prefs.setCycleRemindPms(ctx, pms); Prefs.setCycleRemindOvulation(ctx, ov)
-                CycleScheduler.reschedule(ctx)
+                Prefs.setCycleBirthControl(ctx, bc, profile)
+                len.toIntOrNull()?.let { Prefs.setCycleDefaultLength(ctx, it, profile) }
+                per.toIntOrNull()?.let { Prefs.setCycleDefaultPeriod(ctx, it, profile) }
+                if (canRemind) {
+                    Prefs.setCycleRemindBefore(ctx, before); Prefs.setCycleRemindPms(ctx, pms); Prefs.setCycleRemindOvulation(ctx, ov)
+                    CycleScheduler.reschedule(ctx)
+                }
                 onDismiss()
             }) { Text("保存") }
         },

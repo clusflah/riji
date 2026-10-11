@@ -1,5 +1,6 @@
 package app.birthdayreminder.ui.calendar
 
+import app.birthdayreminder.data.CycleProfiles
 import app.birthdayreminder.ui.common.ModuleStore
 import app.birthdayreminder.domain.AlarmTriggers
 import app.birthdayreminder.data.Alarm
@@ -136,7 +137,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 HolidayRepository.index,
                 SettingsStore.flow
             ) { b, r, d, h, st -> DataSnapshot(b, r, d, h, st, emptyList(), emptyList()) }
-            combine(main, db.fitnessDao().observeAll(), db.allergyDao().observeAll(), db.medDao().observeRecords(), db.cycleDao().observeAll()) { m, f, a, r, c ->
+            combine(main, db.fitnessDao().observeAll(), db.allergyDao().observeAll(), db.medDao().observeRecords(), db.cycleDao().observeAll(CycleProfiles.MAIN)) { m, f, a, r, c ->
                 m.copy(fitness = f, allergy = a, records = r, cycle = c)
             }
                 .collect { snap ->

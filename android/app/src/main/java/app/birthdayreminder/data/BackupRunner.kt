@@ -52,7 +52,7 @@ object BackupRunner {
             diary, db.phraseDao().getAll(), SettingsStore.get(app), Instant.now().toString(),
             db.fitnessDao().getAll(), db.allergyDao().getAll(),
             db.medDao().getMeds(), db.medDao().getLogs(), db.medDao().getRecords(),
-            db.cycleDao().getAll(),
+            db.cycleDao().getEverything(),
             CycleSettings(Prefs.cycleBirthControl(app), Prefs.cycleDefaultLength(app), Prefs.cycleDefaultPeriod(app), Prefs.cycleRemindBefore(app),
                 Prefs.cycleRemindPms(app), Prefs.cycleRemindOvulation(app), Prefs.pillMedId(app)),
             prefs = app.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).all.filterKeys { k -> SKIP_PREFS.none { k.startsWith(it) } }
@@ -97,7 +97,10 @@ object BackupRunner {
     suspend fun hasPrivate(ctx: Context): Boolean = withContext(Dispatchers.IO) {
         val db = AppDatabase.get(ctx.applicationContext)
         db.birthdayDao().getAll().any { it.isPrivate } || db.reminderDao().getAll().any { it.isPrivate } ||
-            db.diaryDao().getAll().any { it.isPrivate } || db.phraseDao().getAll().any { it.isPrivate }
+            db.diaryDao().getAll().any { it.isPrivate } || db.phraseDao().getAll().any { it.isPrivate } ||
+            db.fitnessDao().getAll().any { it.isPrivate } || db.allergyDao().getAll().any { it.isPrivate } ||
+            db.alarmDao().getAll().any { it.isPrivate } || db.medDao().getMeds().any { it.isPrivate } ||
+            db.medDao().getRecords().any { it.isPrivate } || db.cycleDao().getAll(CycleProfiles.PRIVATE).isNotEmpty()
     }
 
     sealed class ReadResult {

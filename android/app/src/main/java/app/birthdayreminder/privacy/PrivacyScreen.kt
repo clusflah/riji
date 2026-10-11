@@ -47,6 +47,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import app.birthdayreminder.domain.Modules
+import app.birthdayreminder.domain.CycleLogic
+import app.birthdayreminder.data.CycleProfiles
+import app.birthdayreminder.ui.cycle.CycleContent
+import app.birthdayreminder.ui.cycle.rememberCycleViewModel
 import app.birthdayreminder.ui.common.ModuleStore
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -62,13 +66,18 @@ import app.birthdayreminder.ui.phrase.PhraseViewModel
 import app.birthdayreminder.ui.phrase.copyToClipboard
 import java.time.LocalDate
 
-private val TABS = listOf("日记", "提醒", "生日", "常用语", "健身", "过敏", "闹钟", "药品", "就医")
+private val TABS = listOf("日记", "提醒", "生日", "常用语", "健身", "过敏", "闹钟", "用药就医", "生理期")
 /** 每个标签属于哪个功能（功能关掉了，隐私空间里也不显示） */
 private val TAB_MODULES = listOf(Modules.DIARY, Modules.REMINDER, Modules.BIRTHDAY, Modules.PHRASE,
-    Modules.FITNESS, Modules.ALLERGY, Modules.ALARM, Modules.MED, Modules.MED)
+    Modules.FITNESS, Modules.ALLERGY, Modules.ALARM, Modules.MED, Modules.CYCLE)
+private const val TAB_MED = 7
+private const val TAB_CYCLE = 8
+/** onNew 用的“新建就医记录”（和药品同在“用药就医”标签里，所以单独给个编号） */
+const val PRIVACY_NEW_VISIT = 9
 
 /**
- * 隐私空间：列出标记为私密的日记、提醒、生日、常用语、健身数据、过敏记录、闹钟、药品、就医记录。
+ * 隐私空间：列出标记为私密的日记、提醒、生日、常用语、健身数据、过敏记录、闹钟、用药就医，
+ * 以及隐私空间自己的一份生理期数据（和外面那份完全独立）。
  * 入口是长按日历顶部年月标题 + 验证身份；上锁（手动或离开 App 超过 1 分钟）后自动退出。
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -107,8 +116,10 @@ fun PrivacyScreen(
     val alarms by alvm.privateAlarms.collectAsState()
     val meds by mvm.privateMeds.collectAsState()
     val records by mvm.privateRecords.collectAsState()
+    val cvm = rememberCycleViewModel(CycleProfiles.PRIVATE)
+    val cycleDays by cvm.days.collectAsState()
     var tab by rememberSaveable { mutableIntStateOf(-1) }      // -1 = 全部
-    var showAdd by remember { mutableStateOf(false) }
+    var showAdd by remember { mutableStateOf<Int?>(null) }      // 打开的添加面板：-1 = 全部的，TAB_MED = 只有用药和就医记录
     val fabHide = rememberScrollHideFab()
     // 功能开关：隐私空间里也只显示还开着的功能
     val moduleVer by ModuleStore.version
@@ -134,14 +145,15 @@ fun PrivacyScreen(
         floatingActionButton = {
             HideOnScroll(fabHide) {
             // 私密内容只能在这里新建：建出来的自动是私密的（编辑页里没有任何开关，平时看不出有这个功能）
-            // 和首页一样：“全部”时打开添加面板，具体项目时直接进那一项的添加页
-            TgFab(onClick = { if (tab < 0) showAdd = true else onNew(tab) }) { Icon(Icons.Default.Add, contentDescription = "添加私密内容") }
+            // 和首页一样：“全部”时打开添加面板，具体项目时直接进那一项的添加页；
+            // 用药就医里有药品和就医记录两种，让选一下；生理期有自己的记录按钮，不显示“+”
+            if (tab != TAB_CYCLE) TgFab(onClick = { if (tab < 0 || tab == TAB_MED) showAdd = tab else onNew(tab) }) { Icon(Icons.Default.Add, contentDescription = "添加私密内容") }
             }
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             // 所有私密内容统一成一张表：属于哪个标签、日期（没有就是 null）、类型、标题、说明、点开去哪
-            val all = remember(diaries, reminders, birthdays, phrases, fitness, allergy, alarms, meds, records) {
+            val all = remember(diaries, reminders, birthdays, phrases, fitness, allergy, alarms, meds, records, cycleDays) {
                 buildList {
                     diaries.forEach { e -> add(PItem(0, runCatching { LocalDate.parse(e.date) }.getOrNull(), "diary",
                         DiaryText.snippet(BlockConverter.fromJson(e.content), 60).ifBlank { "（只有图片）" }, null) { onEditDiary(e.id) }) }
@@ -163,19 +175,28 @@ fun PrivacyScreen(
                         "眼睛 ${l.eye} · 鼻子 ${l.nose} · 咳嗽 ${l.cough}", l.note.ifBlank { null }) { onEditAllergy(l.date) }) }
                     alarms.forEach { al -> add(PItem(6, null, "alarm", al.time + if (al.label.isNotBlank()) "  " + al.label else "",
                         app.birthdayreminder.domain.AlarmTriggers.repeatText(al) + if (al.enabled) "" else " · 已关闭") { onEditAlarm(al.id) }) }
-                    meds.forEach { m -> add(PItem(7, null, "med", m.name + if (m.dosage.isNotBlank()) " · " + m.dosage else "",
+                    meds.forEach { m -> add(PItem(TAB_MED, null, "med", m.name + if (m.dosage.isNotBlank()) " · " + m.dosage else "",
                         if (m.active) "提醒中" else "已停用") { onEditMed(m.id) }) }
-                    records.forEach { r -> add(PItem(8, runCatching { LocalDate.parse(r.date) }.getOrNull(), "followup", r.illness,
+                    records.forEach { r -> add(PItem(TAB_MED, runCatching { LocalDate.parse(r.date) }.getOrNull(), "followup", r.illness,
                         app.birthdayreminder.domain.MedicalLogic.where(r).ifBlank { null }) { onEditRecord(r.id) }) }
+                    // 生理期：“全部”里按天列出记了的日子，点开跳到生理期标签
+                    cycleDays.forEach { c -> add(PItem(TAB_CYCLE, runCatching { LocalDate.parse(c.date) }.getOrNull(), "cycle",
+                        CycleLogic.daySummary(c).ifBlank { "生理期记录" }, null) { tab = TAB_CYCLE }) }
                 }
             }
-            // 标签：全部 + 各项（顺序和首页日程区域一样，生日放最后；关掉的功能不显示）
-            val order = listOf(0, 1, 4, 6, 7, 8, 5, 3, 2).filter { it in visibleTabs }
+            // 标签：全部 + 各项（顺序和首页一样：日记、提醒、健身、闹钟、过敏、用药就医、生理期、常用语、生日；关掉的功能不显示）
+            val order = listOf(0, 1, 4, 6, 5, TAB_MED, TAB_CYCLE, 3, 2).filter { it in visibleTabs }
             val pages = listOf(-1) + order
-            val titles = pages.map { t -> if (t < 0) "全部 ${all.count { it.tab in order }}" else "${TABS[t]} ${all.count { it.tab == t }}" }
+            val titles = pages.map { t -> when {
+                t < 0 -> "全部 ${all.count { it.tab in order }}"
+                t == TAB_CYCLE -> TABS[t]          // 生理期按天记，数字没意义
+                else -> "${TABS[t]} ${all.count { it.tab == t }}"
+            } }
             SwipeTabs(titles, pages.indexOf(tab).coerceAtLeast(0), { tab = pages[it] }, scrollableTabs = true, modifier = Modifier.fillMaxSize()) { page ->
                 val t = pages[page]
-                LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
+                // 生理期：和外面同样的页面，只是用隐私空间自己的那份数据
+                if (t == TAB_CYCLE) CycleContent(cvm)
+                else LazyColumn(contentPadding = PaddingValues(bottom = 120.dp)) {
                     if (t < 0) {
                         item(key = "intro") {
                             Text("这里的内容不会出现在日历、列表、桌面小组件和 AI 助手里；在这里点“+”新建的都是私密的。",
@@ -214,19 +235,21 @@ fun PrivacyScreen(
             }
         }
     }
-    if (showAdd) {
-        fun go(t: Int): () -> Unit = { showAdd = false; onNew(t) }
-        fun item(t: Int, kind: String, name: String) = if (t in visibleTabs) SheetItem(kind, name, go(t)) else null
+    showAdd?.let { which ->
+        fun go(t: Int): () -> Unit = { showAdd = null; onNew(t) }
+        fun item(t: Int, kind: String, name: String, module: Int = t) = if (module in visibleTabs) SheetItem(kind, name, go(t)) else null
+        val medItems = listOfNotNull(item(TAB_MED, "med", "用药"), item(PRIVACY_NEW_VISIT, "followup", "就医记录", TAB_MED))
         TileSheet(
-            groups = listOf(
+            groups = if (which == TAB_MED) listOf("用药就医" to medItems) else listOf(
                 "记录" to listOfNotNull(item(0, "diary", "日记"), item(1, "reminder", "提醒"), item(4, "fitness", "健身数据")),
-                "健康" to listOfNotNull(item(5, "allergy", "过敏记录"), item(7, "med", "用药"), item(8, "followup", "就医记录")),
+                "健康" to listOfNotNull(item(5, "allergy", "过敏记录")) + medItems +
+                    listOfNotNull(if (TAB_CYCLE in visibleTabs) SheetItem("cycle", "生理期", { showAdd = null; tab = TAB_CYCLE }) else null),
                 "生活" to listOfNotNull(item(6, "alarm", "闹钟"), item(2, "birthday", "生日")),
                 "工具" to listOfNotNull(item(3, "phrase", "常用语"))
             ),
             container = MaterialTheme.colorScheme.surface,
             tile = app.birthdayreminder.ui.common.Tg.card,
-            onDismiss = { showAdd = false }
+            onDismiss = { showAdd = null }
         )
     }
 }

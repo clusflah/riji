@@ -8,6 +8,7 @@ import app.birthdayreminder.data.MedLog
 import app.birthdayreminder.data.Medication
 import app.birthdayreminder.data.MedicalRecord
 import app.birthdayreminder.data.CycleDay
+import app.birthdayreminder.data.CycleProfiles
 import app.birthdayreminder.data.Birthday
 import app.birthdayreminder.data.ContentBlock
 import app.birthdayreminder.data.DiaryLocation
@@ -116,7 +117,8 @@ object BackupCodec {
             },
             "cycleDays" to cycleDays.map { c ->
                 mapOf("date" to c.date, "flow" to c.flow, "symptoms" to MedicalLogic.listFromJson(c.symptoms), "mood" to c.mood,
-                    "discharge" to c.discharge, "note" to c.note, "updatedAt" to c.updatedAt)
+                    "discharge" to c.discharge, "note" to c.note, "updatedAt" to c.updatedAt) +
+                    (if (c.profile.isNotEmpty()) mapOf("profile" to c.profile) else emptyMap())      // 隐私空间那份才写，旧版读到也不受影响
             },
             "cycleSettings" to cycleSettings?.let { c ->
                 mapOf("birthControl" to c.birthControl, "cycleLength" to c.cycleLength, "periodLength" to c.periodLength,
@@ -339,8 +341,9 @@ object BackupCodec {
                 MedicalLogic.listToJson(asList(c["symptoms"]).orEmpty().mapNotNull { (it as? String)?.takeIf { k -> k in symKeys } }),
                 (c["mood"] as? String)?.takeIf { m -> CycleLogic.MOODS.any { it.first == m } } ?: "",
                 (c["discharge"] as? String)?.takeIf { m -> CycleLogic.DISCHARGES.any { it.first == m } } ?: "",
-                str(c["note"]).take(200), (c["updatedAt"] as? Number)?.toLong() ?: now)
-        }?.distinctBy { it.date }
+                str(c["note"]).take(200), (c["updatedAt"] as? Number)?.toLong() ?: now,
+                profile = if (c["profile"] == CycleProfiles.PRIVATE) CycleProfiles.PRIVATE else CycleProfiles.MAIN)
+        }?.distinctBy { it.profile to it.date }
         val cycleSettings = asMap(d["cycleSettings"])?.let { c ->
             CycleSettings(c["birthControl"] == true, ((c["cycleLength"] as? Number)?.toInt() ?: 28).coerceIn(15, 60),
                 ((c["periodLength"] as? Number)?.toInt() ?: 5).coerceIn(1, 12), ((c["remindBefore"] as? Number)?.toInt() ?: 2).coerceIn(0, 7),
@@ -382,7 +385,8 @@ object BackupCodec {
     /** 备份里有几条私密内容（恢复确认框里提示用） */
     fun privateCount(d: BackupData): Int =
         d.birthdays.count { it.isPrivate } + d.reminders.count { it.isPrivate } +
-            (d.diary?.count { it.isPrivate } ?: 0) + (d.phrases?.count { it.isPrivate } ?: 0)
+            (d.diary?.count { it.isPrivate } ?: 0) + (d.phrases?.count { it.isPrivate } ?: 0) +
+            (d.cycleDays?.count { it.profile.isNotEmpty() } ?: 0)
 
     fun summary(d: BackupData): String {
         val sb = StringBuilder("备份里有 ${d.birthdays.size} 个生日、${d.reminders.size} 项提醒")

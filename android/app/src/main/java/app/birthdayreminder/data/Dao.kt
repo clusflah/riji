@@ -240,14 +240,19 @@ interface MedDao {
 
 @Dao
 interface CycleDao {
-    @Query("SELECT * FROM cycle_days ORDER BY date DESC")
-    fun observeAll(): Flow<List<CycleDay>>
+    // 外面和隐私空间的记录分开查（profile 见 CycleProfiles），互不影响
+    @Query("SELECT * FROM cycle_days WHERE profile = :profile ORDER BY date DESC")
+    fun observeAll(profile: String): Flow<List<CycleDay>>
 
+    @Query("SELECT * FROM cycle_days WHERE profile = :profile")
+    suspend fun getAll(profile: String): List<CycleDay>
+
+    /** 所有份的记录（备份用） */
     @Query("SELECT * FROM cycle_days")
-    suspend fun getAll(): List<CycleDay>
+    suspend fun getEverything(): List<CycleDay>
 
-    @Query("SELECT * FROM cycle_days WHERE date = :date")
-    suspend fun get(date: String): CycleDay?
+    @Query("SELECT * FROM cycle_days WHERE profile = :profile AND date = :date")
+    suspend fun get(profile: String, date: String): CycleDay?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(d: CycleDay)
@@ -255,8 +260,8 @@ interface CycleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(list: List<CycleDay>)
 
-    @Query("DELETE FROM cycle_days WHERE date = :date")
-    suspend fun delete(date: String)
+    @Query("DELETE FROM cycle_days WHERE profile = :profile AND date = :date")
+    suspend fun delete(profile: String, date: String)
 
     @Query("DELETE FROM cycle_days")
     suspend fun deleteAll()

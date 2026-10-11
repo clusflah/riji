@@ -1,5 +1,6 @@
 package app.birthdayreminder
 
+import app.birthdayreminder.data.CycleProfiles
 import app.birthdayreminder.domain.CycleLogic
 import app.birthdayreminder.domain.MedLogic
 import app.birthdayreminder.domain.AllergyLogic
@@ -100,7 +101,7 @@ object WidgetUpdater {
                 }
         })
         if (on(Modules.CYCLE)) root.put("cycleList", JSONArray().also { a ->
-            val days = db.cycleDao().getAll()
+            val days = db.cycleDao().getAll(CycleProfiles.MAIN)
             if (days.isNotEmpty()) {
                 val ps = CycleLogic.periods(days)
                 val st = CycleLogic.stats(ps, Prefs.cycleDefaultLength(ctx), Prefs.cycleDefaultPeriod(ctx))
@@ -156,7 +157,7 @@ object WidgetUpdater {
                 HolidayRepository.index
             ) { _, _, _, _, _ -> Unit }
                 .let { base ->
-                    combine(base, db.fitnessDao().observeAll(), db.allergyDao().observeAll(), db.medDao().observeMeds(), db.cycleDao().observeAll()) { _, _, _, _, _ -> Unit }
+                    combine(base, db.fitnessDao().observeAll(), db.allergyDao().observeAll(), db.medDao().observeMeds(), db.cycleDao().observeAll(CycleProfiles.MAIN)) { _, _, _, _, _ -> Unit }
                 }
                 .let { base -> combine(base, db.phraseDao().observeAll()) { _, _ -> Unit } }
                 .debounce(500)
