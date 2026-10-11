@@ -27,9 +27,18 @@
 - `birthday-reminder-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
 - `birthday-reminder-apk`：调试版
 
-正式版和小企鹅输入法（fcitx5-android-mod）用同一个签名：在本仓库 Settings → Secrets and variables → Actions 里添加
-`SIGN_KEY_BASE64`、`SIGN_KEY_PWD`、`SIGN_KEY_ALIAS` 三个 Secret，值和输入法仓库里的一样。
-没设置时正式版退回用调试签名。本机打正式版想用同一个签名，可以设置环境变量 `SIGN_KEY_FILE`（签名文件路径）、`SIGN_KEY_PWD`、`SIGN_KEY_ALIAS`。
+> 从以前装的调试版（或旧签名的版本）换成正式版时，签名不同，不能直接覆盖安装：
+> 先在 设置 → 数据 里导出备份（或做一次云盘备份），卸载旧版，装上正式版后再恢复备份。以后正式版之间可以直接覆盖升级。
+
+## 签名
+
+正式版用日迹自己的签名（`android/app/build.gradle` 的 `signingConfigs.release`）：
+
+- **本机**：从 `android/keystore.properties` 读（`storeFile`、`storePassword`、`keyAlias`、`keyPassword`），这个文件和签名文件都不提交到 git。
+- **GitHub Actions**：从仓库 Secrets 读：`RELEASE_KEYSTORE_BASE64`（签名文件的 base64）、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD`。
+- 都没有时退回调试签名，别人 fork 之后也能正常打包。
+
+> **签名文件一定要备份**（连同密码）。丢了就再也发不出能覆盖升级的新版本，只能让用户卸载重装。
 
 调试版签名：可选再加一个 `DEBUG_KEYSTORE_BASE64`（电脑上 `~/.android/debug.keystore` 的 base64），
 自动构建的调试版就和自己电脑上打的调试版签名一致；不设置则每次构建用临时签名。

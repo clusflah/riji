@@ -31,18 +31,28 @@ jobs:
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      # 和小企鹅输入法同一个签名（见 build.gradle）。发布版必须有签名，缺 Secret 时直接失败，不发调试签名的包
+      # 发布版必须有正式签名，缺 Secret 时直接失败，不发调试签名的包
+      - name: Restore release key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_BASE64" ] || [ -z "$RELEASE_STORE_PASSWORD" ] || [ -z "$RELEASE_KEY_ALIAS" ] || [ -z "$RELEASE_KEY_PASSWORD" ]; then
+            echo "::error::仓库 Secrets 里缺少 RELEASE_KEYSTORE_BASE64 / RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD"
+            exit 1
+          fi
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
       - name: Build release APKs (完整版 + 无过敏记录版)
         working-directory: android
         env:
-          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
-          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
-          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$SIGN_KEY_BASE64" ] || [ -z "$SIGN_KEY_PWD" ] || [ -z "$SIGN_KEY_ALIAS" ]; then
-            echo "::error::仓库 Secrets 里缺少 SIGN_KEY_BASE64 / SIGN_KEY_PWD / SIGN_KEY_ALIAS"
-            exit 1
-          fi
           chmod +x gradlew
           ./gradlew assembleRelease
 

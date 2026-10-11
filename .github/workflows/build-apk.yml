@@ -31,17 +31,25 @@ jobs:
             echo "没有设置 DEBUG_KEYSTORE_BASE64，调试版用临时签名"
           fi
 
-      # 正式版用和小企鹅输入法同一个签名：仓库 Secret 里设置 SIGN_KEY_BASE64 / SIGN_KEY_PWD / SIGN_KEY_ALIAS（值和输入法仓库的一样）
+      # 正式版签名：仓库 Secret 里的 RELEASE_KEYSTORE_BASE64（签名文件的 base64）+ 密码、别名，没设置时正式版用调试签名
+      - name: Restore release key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            echo "RELEASE_STORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::没有设置 RELEASE_KEYSTORE_BASE64，正式版用调试签名"
+          fi
+
       - name: Build debug + release APKs (完整版 + 无过敏记录版)
         working-directory: android
         env:
-          SIGN_KEY_BASE64: ${{ secrets.SIGN_KEY_BASE64 }}
-          SIGN_KEY_PWD: ${{ secrets.SIGN_KEY_PWD }}
-          SIGN_KEY_ALIAS: ${{ secrets.SIGN_KEY_ALIAS }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          if [ -z "$SIGN_KEY_BASE64" ]; then
-            echo "::warning::没有设置 SIGN_KEY_BASE64，正式版用调试签名"
-          fi
           chmod +x gradlew
           ./gradlew assembleDebug assembleRelease
 

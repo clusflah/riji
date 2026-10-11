@@ -14,35 +14,29 @@ android {
         versionName "1.5.7" // 每次更新往上加：修复和小改动加最后一位（1.0.1），新功能加中间一位（1.1.0）
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
-    // 正式版签名：和小企鹅输入法（fcitx5-android-mod）用同一把钥匙，环境变量名也相同：
-    // SIGN_KEY_BASE64（签名文件的 base64）或 SIGN_KEY_FILE（签名文件路径），SIGN_KEY_PWD（密码），SIGN_KEY_ALIAS（别名）。
-    // GitHub 上从仓库 Secret 读取；本机没设置这些变量时，正式版退回用调试签名。
-    def envOrProp = { String env, String prop -> System.getenv(env) ?: (project.findProperty(prop) as String) }
-    def signKeyFile = null
-    def keyPath = envOrProp("SIGN_KEY_FILE", "signKeyFile")
-    def keyB64 = envOrProp("SIGN_KEY_BASE64", "signKeyBase64")
-    if (keyPath && new File(keyPath).exists()) {
-        signKeyFile = new File(keyPath)
-    } else if (keyB64) {
-        def dir = layout.buildDirectory.get().asFile
-        dir.mkdirs()
-        signKeyFile = new File(dir, "sign.ks")
-        signKeyFile.bytes = keyB64.trim().decodeBase64()
-    }
+    // 正式版签名（日迹自己的签名）：本机从 android/keystore.properties 读（不提交到 git），
+    // GitHub Actions 从仓库 Secrets 传进来的环境变量读（RELEASE_STORE_FILE / RELEASE_STORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD）。
+    // 两处都没有时退回调试签名，方便没有签名文件的人也能打包。
+    def keystoreProps = new Properties()
+    def keystorePropsFile = rootProject.file("keystore.properties")
+    if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
+    def signingValue = { String prop, String env -> keystoreProps.getProperty(prop) ?: System.getenv(env) }
+    def releaseStoreFile = signingValue("storeFile", "RELEASE_STORE_FILE")
     signingConfigs {
-        if (signKeyFile != null) {
-            release {
-                storeFile signKeyFile
-                storePassword envOrProp("SIGN_KEY_PWD", "signKeyPwd")
-                keyAlias envOrProp("SIGN_KEY_ALIAS", "signKeyAlias")
-                keyPassword envOrProp("SIGN_KEY_PWD", "signKeyPwd")
+        release {
+            if (releaseStoreFile) {
+                storeFile file(releaseStoreFile)
+                storePassword signingValue("storePassword", "RELEASE_STORE_PASSWORD")
+                keyAlias signingValue("keyAlias", "RELEASE_KEY_ALIAS")
+                keyPassword signingValue("keyPassword", "RELEASE_KEY_PASSWORD")
             }
         }
     }
     buildTypes {
         // 日常使用请装正式版（Build Variants 里选 fullRelease）：不可调试，系统会完整编译优化，滑动比调试版流畅很多。
+        // 正式版用自己的签名，和调试版签名不同：从调试版换成正式版要先备份数据、卸载再安装。
         release {
-            signingConfig signKeyFile != null ? signingConfigs.release : signingConfigs.debug
+            signingConfig releaseStoreFile ? signingConfigs.release : signingConfigs.debug
             debuggable false
             minifyEnabled false      // 不压缩代码，避免误伤用到反射的功能
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
