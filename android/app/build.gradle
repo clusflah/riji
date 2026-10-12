@@ -11,7 +11,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 8 // 保持不变：需要回退到之前的版本时，系统不会当成降级而拒绝安装
-        versionName "1.7.0" // 每次更新往上加：修复和小改动加最后一位（1.0.1），新功能加中间一位（1.1.0）
+        versionName "1.7.1" // 每次更新往上加：修复和小改动加最后一位（1.0.1），新功能加中间一位（1.1.0）
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
     // 正式版签名（日迹自己的签名）：本机从 android/keystore.properties 读（不提交到 git），
