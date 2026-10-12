@@ -18,6 +18,12 @@ env:
 permissions:
   contents: write
 
+# 同一个提交的日常构建（推送 main）和发布（推送标签）排队、不同时跑：
+# 两个同时跑时打包几次在一分钟内失败，单独跑都成功
+concurrency:
+  group: android-build-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -65,7 +71,8 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease
+          # 构建机偶尔出网络问题（依赖下载失败）：失败了再试一次，第二次带完整报错
+          ./gradlew assembleRelease || { echo "::warning::第一次打包失败，重试一次"; ./gradlew assembleRelease --stacktrace; }
 
       - name: Rename and verify signature
         run: |

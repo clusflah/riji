@@ -5,6 +5,11 @@ on:
   push:
     branches: [main, master]
 
+# 和发布（release.yml）共用一个排队组：同一个提交的两次构建不同时跑
+concurrency:
+  group: android-build-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -51,7 +56,8 @@ jobs:
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug assembleRelease
+          # 构建机偶尔出网络问题（依赖下载失败）：失败了再试一次，第二次带完整报错
+          ./gradlew assembleDebug assembleRelease || { echo "::warning::第一次打包失败，重试一次"; ./gradlew assembleDebug assembleRelease --stacktrace; }
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v6
