@@ -103,7 +103,8 @@ data class CalendarUiState(
     val fitnessSummary: String? = null,
     val allergy: AllergyLog? = null,
     val allergySummary: String? = null,
-    val alarms: List<Alarm> = emptyList()           // 选中这天会响的闹钟（时间轴用）
+    val alarms: List<Alarm> = emptyList(),          // 选中这天会响的闹钟（时间轴用）
+    val studies: List<app.birthdayreminder.data.StudyLog> = emptyList()   // 选中这天的学习记录（时间轴用）
 )
 
 class CalendarViewModel(app: Application) : AndroidViewModel(app) {
@@ -117,8 +118,8 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private var allRecords: List<MedicalRecord> = emptyList()
     private var allCycle: List<CycleDay> = emptyList()
     private var allAlarms: List<Alarm> = emptyList()
-    /** 有学习记录的日子（日历上画黑色小圆点） */
-    private var studyDates: Set<String> = emptySet()
+    /** 学习记录：日历上画黑色小圆点，选中那天的放进时间轴 */
+    private var allStudy: List<app.birthdayreminder.data.StudyLog> = emptyList()
     private var holidays: HolidayIndex = HolidayRepository.index.value
     private var settings: AppSettings = SettingsStore.get(app)
     private var month: YearMonth = YearMonth.now()
@@ -131,7 +132,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         rebuild()
         // 闹钟：时间轴上显示选中这天会响的闹钟（私密的不显示）
         viewModelScope.launch { db.alarmDao().observeAll().collect { l -> allAlarms = l.filter { !it.isPrivate }; rebuild() } }
-        viewModelScope.launch { db.studyDao().observeLogs().collect { l -> studyDates = l.map { it.date }.toSet(); rebuild() } }
+        viewModelScope.launch { db.studyDao().observeLogs().collect { l -> allStudy = l; rebuild() } }
         viewModelScope.launch {
             // combine 最多一次合 5 个，分两组再合起来
             val main = combine(
@@ -216,7 +217,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         val cycleMarks = if (allCycle.isEmpty()) emptyMap() else CycleLogic.marks(allCycle, gridStart, gridStart.plusDays(41), today,
             Prefs.cycleBirthControl(app), Prefs.cycleDefaultLength(app), Prefs.cycleDefaultPeriod(app))
-        val study = if (Prefs.moduleOn(app, Modules.STUDY)) studyDates else emptySet()
+        val study = if (Prefs.moduleOn(app, Modules.STUDY)) allStudy.map { it.date }.toSet() else emptySet()
         return (0 until 42).map { i ->
             val date = gridStart.plusDays(i.toLong())
             CalendarDayUi(
@@ -352,7 +353,8 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 showLunar = settings.showLunar,
                 birthdays = bItems,
                 reminders = rItems,
-                diaries = dItems
+                diaries = dItems,
+                studies = if (Prefs.moduleOn(getApplication(), Modules.STUDY)) allStudy.filter { it.date == selected.toString() } else emptyList()
             )
         }
     }

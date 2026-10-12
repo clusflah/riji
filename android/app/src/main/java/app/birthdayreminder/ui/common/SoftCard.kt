@@ -66,6 +66,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -197,11 +198,15 @@ fun TgTopBar(
 @Composable
 fun OnHeader(content: @Composable () -> Unit) { content() }
 
-/** 浮动按钮：主色、48dp、16 圆角 */
+/** 浮动按钮的底色：主色调淡一些（叠在页面底色上，不用半透明，免得透出后面的内容和阴影） */
+@Composable
+fun tgFabColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f).compositeOver(MaterialTheme.colorScheme.surface)
+
+/** 浮动按钮：淡一点的主色、48dp、16 圆角 */
 @Composable
 fun TgFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp), shape = RoundedCornerShape(16.dp),
-        containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White,
+        containerColor = tgFabColor(), contentColor = Color.White,
         // 阴影调低，视觉上轻一点，不和旁边的卡片抢
         elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
         content = content)

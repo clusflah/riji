@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.7.1**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
+**版本 1.7.2**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
 
 农历日历 + 节假日/调休 + 生日、提醒事项、闹钟、日记、常用语 + 健身、过敏、用药就医、生理期 + 隐私空间 + AI 助手 + 桌面小组件 + 云盘备份。
 纯原生：Kotlin + Jetpack Compose + Room，没有网页界面，也不再依赖 Capacitor / Node。
@@ -24,8 +24,8 @@
 
 **开发中的版本**：在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建（需要登录 GitHub，90 天后过期），页面底部 Artifacts 里有两个压缩包，各含完整版和无过敏记录版两个 APK：
 
-- `birthday-reminder-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
-- `birthday-reminder-apk`：调试版
+- `riji-apk-release`：正式版，日常使用装这个（不可调试，运行更流畅）
+- `riji-apk-debug`：调试版
 
 > 从以前装的调试版（或旧签名的版本）换成正式版时，签名不同，不能直接覆盖安装：
 > 先在 设置 → 数据 里导出备份（或做一次云盘备份），卸载旧版，装上正式版后再恢复备份。以后正式版之间可以直接覆盖升级。

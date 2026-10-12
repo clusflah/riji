@@ -25,6 +25,9 @@ import java.util.UUID
 object StudyUi {
     val newRequest = mutableStateOf<LocalDate?>(null)
     fun requestNew(date: LocalDate) { newRequest.value = date }
+    /** 首页时间轴点了某条学习记录：学习页面打开它的编辑框 */
+    val editRequest = mutableStateOf<String?>(null)
+    fun requestEdit(id: String) { editRequest.value = id }
 }
 
 class StudyViewModel(app: Application) : AndroidViewModel(app) {

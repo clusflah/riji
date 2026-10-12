@@ -77,6 +77,11 @@ fun StudyContent(vm: StudyViewModel = viewModel()) {
     LaunchedEffect(request) {
         request?.let { d -> editing = StudyLog(UUID.randomUUID().toString(), (if (d.isAfter(today)) today else d).toString()); StudyUi.newRequest.value = null }
     }
+    val editReq by StudyUi.editRequest
+    LaunchedEffect(editReq, logs) {
+        val id = editReq ?: return@LaunchedEffect
+        logs.firstOrNull { it.id == id }?.let { editing = it; StudyUi.editRequest.value = null }
+    }
     val week = remember(logs) { StudyLogic.stats(logs, today.minusDays((today.dayOfWeek.value - 1).toLong()), today) }
     val month = remember(logs) { StudyLogic.stats(logs, today.withDayOfMonth(1), today) }
     val todaySt = remember(logs) { StudyLogic.stats(logs, today, today) }
@@ -181,10 +186,10 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
                 Text("学习内容", style = MaterialTheme.typography.labelLarge)
                 rows.forEachIndexed { i, r ->
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        OutlinedTextField(value = r.name, onValueChange = { r.name = it.take(40) }, singleLine = true, label = { Text("内容") }, modifier = Modifier.weight(1.6f))
+                        OutlinedTextField(value = r.name, onValueChange = { r.name = it.take(40) }, singleLine = true, label = { Text("内容") }, modifier = Modifier.weight(1.5f))
                         OutlinedTextField(value = r.amount, onValueChange = { v -> r.amount = v.filter { it.isDigit() || it == '.' }.take(7) }, singleLine = true,
                             label = { Text("量") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(0.8f))
-                        UnitField(r, Modifier.weight(0.9f))
+                        UnitField(r, Modifier.weight(1f))
                         Column {
                             // 存成常用项目
                             IconButton(enabled = r.name.isNotBlank(), onClick = { vm.savePreset(r.toItem()); android.widget.Toast.makeText(ctx, "已存为常用项目", android.widget.Toast.LENGTH_SHORT).show() }) {
@@ -231,17 +236,30 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
     )
 }
 
-/** 单位：可以直接输入，也可以点右边的小箭头从常用单位里选（含“分钟”“小时”，量就按时间记） */
+/**
+ * 单位：和旁边两个框一样高的只读框，点一下从常用单位里选（含“分钟”“小时”，量就按时间记），
+ * 列表最后的“自定义…”可以自己输入。框里不放箭头图标，窄的时候选好的单位也看得见。
+ */
 @Composable
 private fun UnitField(r: Row3, modifier: Modifier) {
     var open by remember { mutableStateOf(false) }
+    var custom by remember { mutableStateOf<String?>(null) }
     Box(modifier) {
-        OutlinedTextField(value = r.unit, onValueChange = { r.unit = it.take(6) }, singleLine = true, label = { Text("单位") },
-            trailingIcon = { IconButton(onClick = { open = true }) { Icon(Icons.Default.ArrowDropDown, contentDescription = "选单位") } },
-            modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(value = r.unit, onValueChange = {}, readOnly = true, singleLine = true, label = { Text("单位", maxLines = 1) },
+            placeholder = { Text("选", maxLines = 1) }, modifier = Modifier.fillMaxWidth())
+        // 盖在上面接住点击（只读输入框自己不响应点击）
+        Box(Modifier.matchParentSize().clickable { open = true })
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             StudyLogic.UNITS.forEach { u -> DropdownMenuItem(text = { Text(u) }, onClick = { r.unit = u; open = false }) }
+            DropdownMenuItem(text = { Text("不要单位") }, onClick = { r.unit = ""; open = false })
+            DropdownMenuItem(text = { Text("自定义…") }, onClick = { custom = r.unit; open = false })
         }
+    }
+    custom?.let { v ->
+        AlertDialog(onDismissRequest = { custom = null }, title = { Text("自定义单位") },
+            text = { OutlinedTextField(value = v, onValueChange = { custom = it.take(6) }, singleLine = true, label = { Text("比如：套、遍") }) },
+            confirmButton = { TextButton(onClick = { r.unit = v.trim(); custom = null }) { Text("确定") } },
+            dismissButton = { TextButton(onClick = { custom = null }) { Text("取消") } })
     }
 }
 

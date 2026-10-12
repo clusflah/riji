@@ -129,6 +129,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.birthdayreminder.domain.CycleLogic
+import app.birthdayreminder.domain.StudyLogic
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
 import app.birthdayreminder.domain.Modules
@@ -336,6 +337,8 @@ fun CalendarScreen(
                         onToggleTodo = { r -> vm.toggleTodo(r) },
                         onSelectDate = { d -> vm.select(d) },
                         onEditAlarm = onEditAlarm,
+                        // 学习记录：切到“学习”标签并打开那条的编辑框
+                        onEditStudy = { id -> homeTab = OpenTarget.TAB_STUDY; app.birthdayreminder.ui.study.StudyUi.requestEdit(id) },
                         onSeeAll = { agendaMode = true }      // 查看全部：切到日程视图
                     )
                 }
@@ -897,6 +900,7 @@ private fun DayPanel(
     onToggleTodo: (Reminder) -> Unit,
     onSelectDate: (LocalDate) -> Unit,
     onEditAlarm: (String) -> Unit = {},
+    onEditStudy: (String) -> Unit = {},
     onSeeAll: () -> Unit = {}
 ) {
     val d = ui.selected
@@ -916,6 +920,11 @@ private fun DayPanel(
                 val time = if (t.toLocalDate().toString() == item.entity.date) "%02d:%02d".format(t.hour, t.minute) else null
                 val tags = listOfNotNull(if (item.hasImage) "有图片" else null, if (item.hasLocation) "有位置" else null).joinToString(" · ")
                 add(DayTimeline.Entry(time, "diary", item.snippet.ifBlank { "日记" }, tags.ifEmpty { null }, "d:" + item.entity.id))
+            }
+            // 学习：填了开始时间的按时间排，没填的放全天
+            ui.studies.forEach { s ->
+                add(DayTimeline.Entry(s.time.ifBlank { null }, "study", StudyLogic.summary(StudyLogic.itemsFromJson(s.items)).ifBlank { "学习" },
+                    listOf(StudyLogic.fmtMinutes(s.minutes), s.note).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }, "s:" + s.id))
             }
         })
         if (entries.isEmpty()) {
@@ -938,7 +947,7 @@ private fun DayPanel(
                         val id = e.ref?.substringAfter(':') ?: ""
                         when (e.kind) {
                             "birthday" -> onEditBirthday(id); "reminder" -> onEditReminder(id); "diary" -> onEditDiary(id)
-                            "alarm" -> onEditAlarm(id); "fitness" -> onEditFitness(); "allergy" -> onEditAllergy()
+                            "alarm" -> onEditAlarm(id); "fitness" -> onEditFitness(); "allergy" -> onEditAllergy(); "study" -> onEditStudy(id)
                         }
                     })
             }

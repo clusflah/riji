@@ -144,11 +144,11 @@ fun ListScreen(
             // 按页面区分：生理期有自己的按钮、常用语在顶栏右上角，都不需要；健身是“＋ 记录”；闹钟用小号
             if (tabIds.isNotEmpty() && tab == OpenTarget.TAB_FITNESS) {
                 androidx.compose.material3.ExtendedFloatingActionButton(onClick = onNewFitness, shape = RoundedCornerShape(20.dp),
-                    containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White,
+                    containerColor = app.birthdayreminder.ui.common.tgFabColor(), contentColor = Color.White,
                     icon = { Icon(Icons.Default.Add, contentDescription = null) }, text = { Text("记录") })
             } else if (tabIds.isNotEmpty() && tab == OpenTarget.TAB_ALARM) {
                 androidx.compose.material3.SmallFloatingActionButton(onClick = onNewAlarm, shape = RoundedCornerShape(14.dp),
-                    containerColor = MaterialTheme.colorScheme.primary, contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "添加闹钟") }
+                    containerColor = app.birthdayreminder.ui.common.tgFabColor(), contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "添加闹钟") }
             } else if (tabIds.isNotEmpty() && tab != OpenTarget.TAB_CYCLE && tab != OpenTarget.TAB_PHRASE) TgFab(onClick = {
                 when (tab) {
                     OpenTarget.TAB_DIARY -> onNewDiary()
