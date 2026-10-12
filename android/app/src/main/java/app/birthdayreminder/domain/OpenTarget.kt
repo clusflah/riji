@@ -21,7 +21,9 @@ object OpenTarget {
     const val TAB_CYCLE = 6
     const val TAB_PHRASE = 7
     const val TAB_BIRTHDAY = 8
-    const val TAB_COUNT = 9
+    /** 学习：后加的，编号排在最后（显示顺序由各处的列表决定，放在健身后面） */
+    const val TAB_STUDY = 9
+    const val TAB_COUNT = 10
 
     /** 当前版本实际有哪些标签（按显示顺序）。无过敏记录版没有 TAB_ALLERGY */
     fun tabs(allergy: Boolean = true): List<Int> = (0 until TAB_COUNT).filter { allergy || it != TAB_ALLERGY }
@@ -36,6 +38,7 @@ object OpenTarget {
         "cycle", "period" -> "list?tab=$TAB_CYCLE"
         "phrase", "phrases" -> "list?tab=$TAB_PHRASE"
         "birthday", "birthdays" -> "list?tab=$TAB_BIRTHDAY"
+        "study" -> "list?tab=$TAB_STUDY"
         "settings" -> "settings"
         "assistant" -> "assistant"
         else -> null        // calendar / holiday / 空 / 不认识 = 留在首页

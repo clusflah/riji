@@ -14,7 +14,7 @@ object HomeSections {
 
     /** 每个区域里的标签（按这个顺序显示） */
     fun tabs(section: Int): List<Int> = when (section) {
-        RECORD -> listOf(OpenTarget.TAB_DIARY, OpenTarget.TAB_REMINDER, OpenTarget.TAB_FITNESS)
+        RECORD -> listOf(OpenTarget.TAB_DIARY, OpenTarget.TAB_REMINDER, OpenTarget.TAB_FITNESS, OpenTarget.TAB_STUDY)
         HEALTH -> listOf(OpenTarget.TAB_ALLERGY, OpenTarget.TAB_MED, OpenTarget.TAB_CYCLE)
         MORE -> listOf(OpenTarget.TAB_BIRTHDAY, OpenTarget.TAB_ALARM, OpenTarget.TAB_PHRASE)
         else -> emptyList()

@@ -55,6 +55,7 @@ object BackupRunner {
             db.cycleDao().getEverything(),
             CycleSettings(Prefs.cycleBirthControl(app), Prefs.cycleDefaultLength(app), Prefs.cycleDefaultPeriod(app), Prefs.cycleRemindBefore(app),
                 Prefs.cycleRemindPms(app), Prefs.cycleRemindOvulation(app), Prefs.pillMedId(app)),
+            db.studyDao().getLogs(), db.studyDao().getPresets(), db.moodDao().getAll(),
             prefs = app.getSharedPreferences(PREFS_FILE, Context.MODE_PRIVATE).all.filterKeys { k -> SKIP_PREFS.none { k.startsWith(it) } }
         )
     }
@@ -229,6 +230,9 @@ object BackupRunner {
                 Prefs.setPillMedId(app, c.pillMedId)
             }
             if (data.cycleDays != null || data.cycleSettings != null) CycleScheduler.reschedule(app)
+            data.studyLogs?.let { db.studyDao().deleteAllLogs(); db.studyDao().upsertLogs(it) }
+            data.studyPresets?.let { db.studyDao().deleteAllPresets(); db.studyDao().upsertPresets(it) }
+            data.moods?.let { db.moodDao().deleteAll(); db.moodDao().upsertAll(it) }
         }
         // 被换掉的旧闹钟的铃声文件清理掉（新闹钟还在用的不删）
         val keep = alarmsToWrite?.mapNotNull { it.soundPath }?.toSet() ?: emptySet()

@@ -239,6 +239,69 @@ interface MedDao {
 }
 
 @Dao
+interface MoodDao {
+    @Query("SELECT * FROM mood_logs ORDER BY at DESC")
+    fun observeAll(): Flow<List<MoodLog>>
+
+    @Query("SELECT * FROM mood_logs")
+    suspend fun getAll(): List<MoodLog>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(m: MoodLog)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(list: List<MoodLog>)
+
+    @Query("DELETE FROM mood_logs WHERE id = :id")
+    suspend fun delete(id: String)
+
+    @Query("DELETE FROM mood_logs")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface StudyDao {
+    @Query("SELECT * FROM study_logs ORDER BY date DESC, time DESC, updatedAt DESC")
+    fun observeLogs(): Flow<List<StudyLog>>
+
+    @Query("SELECT * FROM study_logs")
+    suspend fun getLogs(): List<StudyLog>
+
+    @Query("SELECT * FROM study_logs WHERE id = :id")
+    suspend fun getLog(id: String): StudyLog?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLog(l: StudyLog)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertLogs(list: List<StudyLog>)
+
+    @Query("DELETE FROM study_logs WHERE id = :id")
+    suspend fun deleteLog(id: String)
+
+    @Query("DELETE FROM study_logs")
+    suspend fun deleteAllLogs()
+
+    @Query("SELECT * FROM study_presets ORDER BY sort, name")
+    fun observePresets(): Flow<List<StudyPreset>>
+
+    @Query("SELECT * FROM study_presets")
+    suspend fun getPresets(): List<StudyPreset>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPreset(p: StudyPreset)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertPresets(list: List<StudyPreset>)
+
+    @Query("DELETE FROM study_presets WHERE id = :id")
+    suspend fun deletePreset(id: String)
+
+    @Query("DELETE FROM study_presets")
+    suspend fun deleteAllPresets()
+}
+
+@Dao
 interface CycleDao {
     // 外面和隐私空间的记录分开查（profile 见 CycleProfiles），互不影响
     @Query("SELECT * FROM cycle_days WHERE profile = :profile ORDER BY date DESC")

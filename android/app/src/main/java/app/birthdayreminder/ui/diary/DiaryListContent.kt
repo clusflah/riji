@@ -38,6 +38,8 @@ fun DiaryListContent(onEdit: (String) -> Unit, vm: DiaryListViewModel = viewMode
             }
     }
     LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
+        // 快捷心情：一点即记，右上角进心情统计
+        item(key = "mood") { app.birthdayreminder.ui.mood.MoodQuickBar() }
         if (rows.isEmpty()) {
             item { Text("还没有日记，点右下角“+”写一篇", modifier = Modifier.padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }

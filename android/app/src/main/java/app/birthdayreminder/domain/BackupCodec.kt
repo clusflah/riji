@@ -9,6 +9,9 @@ import app.birthdayreminder.data.Medication
 import app.birthdayreminder.data.MedicalRecord
 import app.birthdayreminder.data.CycleDay
 import app.birthdayreminder.data.CycleProfiles
+import app.birthdayreminder.data.StudyLog
+import app.birthdayreminder.data.MoodLog
+import app.birthdayreminder.data.StudyPreset
 import app.birthdayreminder.data.Birthday
 import app.birthdayreminder.data.ContentBlock
 import app.birthdayreminder.data.DiaryLocation
@@ -47,6 +50,9 @@ data class BackupData(
     val medicalRecords: List<MedicalRecord>? = null,
     val cycleDays: List<CycleDay>? = null,
     val cycleSettings: CycleSettings? = null,
+    val studyLogs: List<StudyLog>? = null,
+    val studyPresets: List<StudyPreset>? = null,
+    val moods: List<MoodLog>? = null,
     /** App 的偏好设置（含 AI / 语音 / 高德的 Key、功能开关、生理期设置等），值是 String / Boolean / Int / Long / Float / Set<String> */
     val prefs: Map<String, Any>? = null
 )
@@ -82,6 +88,8 @@ object BackupCodec {
         medications: List<Medication> = emptyList(), medLogs: List<MedLog> = emptyList(),
         medicalRecords: List<MedicalRecord> = emptyList(),
         cycleDays: List<CycleDay> = emptyList(), cycleSettings: CycleSettings? = null,
+        studyLogs: List<StudyLog> = emptyList(), studyPresets: List<StudyPreset> = emptyList(),
+        moods: List<MoodLog> = emptyList(),
         prefs: Map<String, Any?> = emptyMap()
     ): String {
         val data = linkedMapOf<String, Any?>(
@@ -123,6 +131,14 @@ object BackupCodec {
             "cycleSettings" to cycleSettings?.let { c ->
                 mapOf("birthControl" to c.birthControl, "cycleLength" to c.cycleLength, "periodLength" to c.periodLength,
                     "remindBefore" to c.remindBefore, "remindPms" to c.remindPms, "remindOvulation" to c.remindOvulation, "pillMedId" to c.pillMedId)
+            },
+            "studyLogs" to studyLogs.map { s ->
+                mapOf("id" to s.id, "date" to s.date, "items" to (app.birthdayreminder.ai.MiniJson.parse(s.items) ?: emptyList<Any>()), "minutes" to s.minutes,
+                    "time" to s.time, "note" to s.note, "updatedAt" to s.updatedAt)
+            },
+            "moods" to moods.map { m -> mapOf("id" to m.id, "date" to m.date, "at" to m.at, "level" to m.level, "note" to m.note) },
+            "studyPresets" to studyPresets.map { p ->
+                mapOf("id" to p.id, "name" to p.name, "unit" to p.unit, "amount" to p.amount, "sort" to p.sort, "updatedAt" to p.updatedAt)
             },
             // 偏好设置和 Key：每项记下类型，恢复时按原类型写回
             "prefs" to prefs.mapNotNull { (k, v) ->
@@ -350,6 +366,30 @@ object BackupCodec {
                 c["remindPms"] != false, c["remindOvulation"] == true, str(c["pillMedId"]).take(60))
         }
 
+        // 学习：记录（各项内容重新整理一遍，名称、单位限长）和常用项目
+        val studyLogs = asList(d["studyLogs"])?.mapNotNull { x ->
+            val s = asMap(x) ?: return@mapNotNull null
+            val date = validDay(s["date"]) ?: return@mapNotNull null
+            val items = StudyLogic.itemsFromJson(app.birthdayreminder.ai.MiniJson.write(s["items"])).take(50)
+                .map { it.copy(name = it.name.take(40), unit = it.unit.take(10)) }
+            StudyLog(id(s["id"]), date, StudyLogic.itemsToJson(items), ((s["minutes"] as? Number)?.toInt() ?: 0).coerceIn(0, 24 * 60),
+                (s["time"] as? String)?.takeIf { HM.matches(it) } ?: "", str(s["note"]).take(500), (s["updatedAt"] as? Number)?.toLong() ?: now)
+        }?.distinctBy { it.id }
+        val studyPresets = asList(d["studyPresets"])?.mapNotNull { x ->
+            val p = asMap(x) ?: return@mapNotNull null
+            val name = str(p["name"]).trim().take(40).ifEmpty { return@mapNotNull null }
+            StudyPreset(id(p["id"]), name, str(p["unit"]).take(10), (p["amount"] as? Number)?.toDouble(),
+                (p["sort"] as? Number)?.toInt() ?: 0, (p["updatedAt"] as? Number)?.toLong() ?: now)
+        }?.distinctBy { it.id }
+
+        // 快捷心情：等级 1~5
+        val moods = asList(d["moods"])?.mapNotNull { x ->
+            val m = asMap(x) ?: return@mapNotNull null
+            val date = validDay(m["date"]) ?: return@mapNotNull null
+            val level = (m["level"] as? Number)?.toInt()?.takeIf { it in 1..5 } ?: return@mapNotNull null
+            MoodLog(id(m["id"]), date, (m["at"] as? Number)?.toLong() ?: now, level, str(m["note"]).take(200))
+        }?.distinctBy { it.id }
+
         // 偏好设置和 Key：只认合法的键名和类型，太长的值丢掉
         val prefs = asMap(d["prefs"])?.mapNotNull { (k, raw) ->
             if (!Regex("[A-Za-z0-9_.\\-]{1,80}").matches(k)) return@mapNotNull null
@@ -378,7 +418,7 @@ object BackupCodec {
         )
         return BackupData(birthdays, reminders, alarms, diary, phrases, settings, fitness = fitness, fitnessFields = fitnessFields, allergy = allergy,
             medications = medications, medLogs = medLogs, medicalRecords = medicalRecords,
-            cycleDays = cycleDays, cycleSettings = cycleSettings, prefs = prefs)
+            cycleDays = cycleDays, cycleSettings = cycleSettings, studyLogs = studyLogs, studyPresets = studyPresets, moods = moods, prefs = prefs)
     }
 
     /** 恢复前确认框里的一句话 */
@@ -399,6 +439,8 @@ object BackupCodec {
         d.medLogs?.let { sb.append("、${it.size} 条服药记录") }
         d.medicalRecords?.let { sb.append("、${it.size} 条就医记录") }
         d.cycleDays?.let { sb.append("、${it.size} 天生理期记录") }
+        d.studyLogs?.let { sb.append("、${it.size} 条学习记录") }
+        d.moods?.let { sb.append("、${it.size} 次心情记录") }
         return sb.toString()
     }
 

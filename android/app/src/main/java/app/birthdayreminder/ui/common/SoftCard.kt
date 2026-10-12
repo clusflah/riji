@@ -58,6 +58,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.outlined.ReceiptLong
+import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.ui.Alignment
@@ -227,6 +228,7 @@ fun eventIcon(kind: String): Pair<ImageVector, Color> = when (kind) {
     "allergy" -> Icons.Outlined.LocalFlorist to Color(0xFF7FA650)
     "med" -> Icons.Outlined.Medication to Color(0xFF2BA99B)
     "cycle" -> Icons.Outlined.WaterDrop to LiColors.period
+    "study" -> Icons.Outlined.School to Color(0xFF4F7FD9)
     "todo" -> Icons.Outlined.CheckCircle to LiColors.reminder
     "shopping" -> Icons.Outlined.ShoppingCart to LiColors.holiday
     "ai" -> Icons.Outlined.AutoAwesome to LiColors.term

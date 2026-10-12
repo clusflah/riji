@@ -15,6 +15,7 @@ object Modules {
     const val BIRTHDAY = "birthday"
     const val AI = "ai"
     const val CYCLE = "cycle"
+    const val STUDY = "study"
 
     data class Module(val key: String, val label: String, val desc: String)
 
@@ -22,6 +23,7 @@ object Modules {
         Module(DIARY, "日记", "日记、图片、附件、位置"),
         Module(REMINDER, "提醒", "有日期的提醒和无时间待办，以及它们的通知"),
         Module(FITNESS, "健身数据", "每天的训练、体重记录和统计"),
+        Module(STUDY, "学习", "学习记录、常用项目、学习提醒和统计"),
         Module(ALARM, "闹钟", "工作日 / 休息日 / 自定义闹钟（关掉后所有闹钟都不响）"),
         Module(ALLERGY, "过敏记录", "眼睛过敏、鼻子过敏、咳嗽"),
         Module(MED, "用药就医", "药品、服药提醒、就医记录、复诊提醒"),
@@ -41,7 +43,7 @@ object Modules {
     val TAB_MODULE = mapOf(
         OpenTarget.TAB_DIARY to DIARY, OpenTarget.TAB_REMINDER to REMINDER, OpenTarget.TAB_FITNESS to FITNESS,
         OpenTarget.TAB_ALARM to ALARM, OpenTarget.TAB_ALLERGY to ALLERGY, OpenTarget.TAB_MED to MED, OpenTarget.TAB_CYCLE to CYCLE,
-        OpenTarget.TAB_PHRASE to PHRASE, OpenTarget.TAB_BIRTHDAY to BIRTHDAY
+        OpenTarget.TAB_PHRASE to PHRASE, OpenTarget.TAB_BIRTHDAY to BIRTHDAY, OpenTarget.TAB_STUDY to STUDY
     )
 
     /** 现在能看到的标签（按原来的顺序） */

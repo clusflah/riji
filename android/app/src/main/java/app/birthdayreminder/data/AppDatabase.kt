@@ -9,8 +9,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Birthday::class, Reminder::class, DiaryEntity::class, Alarm::class, Phrase::class, AllergyLog::class, FitnessLog::class, Medication::class, MedLog::class, MedicalRecord::class, CycleDay::class],
-    version = 10,
+    entities = [Birthday::class, Reminder::class, DiaryEntity::class, Alarm::class, Phrase::class, AllergyLog::class, FitnessLog::class, Medication::class, MedLog::class, MedicalRecord::class, CycleDay::class, StudyLog::class, StudyPreset::class, MoodLog::class],
+    version = 11,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -24,6 +24,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun fitnessDao(): FitnessDao
     abstract fun medDao(): MedDao
     abstract fun cycleDao(): CycleDao
+    abstract fun studyDao(): StudyDao
+    abstract fun moodDao(): MoodDao
 
     companion object {
         @Volatile private var instance: AppDatabase? = null
@@ -144,13 +146,34 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** 10 -> 11：新增学习记录表、学习常用项目表和快捷心情记录表，其余数据原样保留 */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `study_logs` (" +
+                        "`id` TEXT NOT NULL, `date` TEXT NOT NULL, `items` TEXT NOT NULL, `minutes` INTEGER NOT NULL, " +
+                        "`time` TEXT NOT NULL, `note` TEXT NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `study_presets` (" +
+                        "`id` TEXT NOT NULL, `name` TEXT NOT NULL, `unit` TEXT NOT NULL, `amount` REAL, " +
+                        "`sort` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, PRIMARY KEY(`id`))"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `mood_logs` (" +
+                        "`id` TEXT NOT NULL, `date` TEXT NOT NULL, `at` INTEGER NOT NULL, `level` INTEGER NOT NULL, " +
+                        "`note` TEXT NOT NULL, PRIMARY KEY(`id`))"
+                )
+            }
+        }
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "li-native.db" // 特意用新文件名，不会和 App 现有的 localStorage/JSON 数据冲突或互相覆盖
-                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10).build().also { instance = it }
+                ).addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11).build().also { instance = it }
             }
     }
 }

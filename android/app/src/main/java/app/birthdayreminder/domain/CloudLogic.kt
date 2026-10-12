@@ -112,6 +112,102 @@ object OneDriveApi {
 }
 
 /**
+ * 百度网盘开放平台（xpan）：用“设备码”方式登录（在浏览器里授权，日迹不接触密码），
+ * 备份放在应用文件夹 /apps/应用名 里。上传分三步：预上传 → 分片上传（每片 4MB）→ 合并。
+ */
+object BaiduPanApi {
+    const val OAUTH = "https://openapi.baidu.com/oauth/2.0"
+    const val XPAN = "https://pan.baidu.com/rest/2.0/xpan"
+    const val PCS_UPLOAD = "https://d.pcs.baidu.com/rest/2.0/pcs/superfile2"
+    /** 百度要求的 User-Agent（下载等接口不带会被拒） */
+    const val UA = "pan.baidu.com"
+    /** 分片大小：普通用户 4MB */
+    const val CHUNK = 4L * 1024 * 1024
+    const val DEFAULT_FOLDER = "/apps/日迹"
+
+    private fun enc(s: String) = URLEncoder.encode(s, "UTF-8").replace("+", "%20")
+
+    fun deviceCodeUrl(appKey: String) = "$OAUTH/device/code?response_type=device_code&client_id=${enc(appKey)}&scope=basic,netdisk"
+    fun deviceTokenUrl(appKey: String, secret: String, deviceCode: String) =
+        "$OAUTH/token?grant_type=device_token&code=${enc(deviceCode)}&client_id=${enc(appKey)}&client_secret=${enc(secret)}"
+    fun refreshUrl(appKey: String, secret: String, refresh: String) =
+        "$OAUTH/token?grant_type=refresh_token&refresh_token=${enc(refresh)}&client_id=${enc(appKey)}&client_secret=${enc(secret)}"
+
+    data class Device(val deviceCode: String, val userCode: String, val verifyUrl: String, val expiresInSec: Long, val intervalSec: Long)
+
+    fun parseDevice(json: String): Device? {
+        val m = MiniJson.parse(json) as? Map<*, *> ?: return null
+        return Device(m["device_code"] as? String ?: return null, m["user_code"] as? String ?: return null,
+            m["verification_url"] as? String ?: "https://openapi.baidu.com/device",
+            (m["expires_in"] as? Number)?.toLong() ?: 300L, ((m["interval"] as? Number)?.toLong() ?: 5L).coerceAtLeast(2L))
+    }
+
+    /** 浏览器打开的授权页：带上用户码，打开就能直接确认 */
+    fun verifyPage(d: Device) = "${d.verifyUrl}?code=${enc(d.userCode)}&display=mobile"
+
+    /** 换令牌的返回：成功是令牌；还没授权是 Pending；其它是错误说明 */
+    sealed class TokenResult {
+        data class Ok(val token: OneDriveApi.Token) : TokenResult()
+        object Pending : TokenResult()
+        data class Fail(val message: String) : TokenResult()
+    }
+
+    fun parseTokenResult(json: String, nowMs: Long): TokenResult {
+        val m = MiniJson.parse(json) as? Map<*, *> ?: return TokenResult.Fail("返回内容看不懂")
+        OneDriveApi.parseToken(json, nowMs)?.let { return TokenResult.Ok(it) }
+        return when (m["error"] as? String) {
+            "authorization_pending", "slow_down" -> TokenResult.Pending
+            "expired_token" -> TokenResult.Fail("授权码过期了，请重新登录")
+            "invalid_client" -> TokenResult.Fail("AppKey 或 SecretKey 不对")
+            "authorization_declined", "access_denied" -> TokenResult.Fail("你取消了授权")
+            else -> TokenResult.Fail((m["error_description"] as? String) ?: (m["error"] as? String) ?: "未知错误")
+        }
+    }
+
+    fun path(folder: String, name: String) = folder.trimEnd('/') + "/" + name
+    fun listUrl(token: String, folder: String) = "$XPAN/file?method=list&dir=${enc(folder)}&limit=1000&access_token=${enc(token)}"
+    fun uinfoUrl(token: String) = "$XPAN/nas?method=uinfo&access_token=${enc(token)}"
+    fun fileUrl(token: String, method: String, extra: String = "") = "$XPAN/file?method=$method$extra&access_token=${enc(token)}"
+    fun uploadPartUrl(token: String, path: String, uploadId: String, partSeq: Int) =
+        "$PCS_UPLOAD?method=upload&type=tmpfile&path=${enc(path)}&uploadid=${enc(uploadId)}&partseq=$partSeq&access_token=${enc(token)}"
+    fun metaUrl(token: String, fsId: Long) = "$XPAN/multimedia?method=filemetas&dlink=1&fsids=${enc("[$fsId]")}&access_token=${enc(token)}"
+
+    /** 分片的 md5 列表 → JSON 文本 ["md5", ...] */
+    fun blockListJson(md5s: List<String>) = md5s.joinToString(",", "[", "]") { "\"$it\"" }
+
+    /** 列表里的一项（带 fs_id，下载要用） */
+    data class Entry(val file: CloudFile, val fsId: Long)
+
+    fun parseList(json: String): List<Entry> {
+        val m = MiniJson.parse(json) as? Map<*, *> ?: return emptyList()
+        return (m["list"] as? List<*>).orEmpty().mapNotNull { x ->
+            val it = x as? Map<*, *> ?: return@mapNotNull null
+            if ((it["isdir"] as? Number)?.toInt() == 1) return@mapNotNull null
+            val name = it["server_filename"] as? String ?: return@mapNotNull null
+            Entry(CloudFile(name, (it["size"] as? Number)?.toLong() ?: 0L, ((it["server_mtime"] as? Number)?.toLong() ?: 0L) * 1000),
+                (it["fs_id"] as? Number)?.toLong() ?: return@mapNotNull null)
+        }
+    }
+
+    fun errno(json: String): Int? = ((MiniJson.parse(json) as? Map<*, *>)?.get("errno") as? Number)?.toInt()
+    fun field(json: String, key: String): Any? = (MiniJson.parse(json) as? Map<*, *>)?.get(key)
+    fun parseAccount(json: String): String? = (MiniJson.parse(json) as? Map<*, *>)?.let { (it["netdisk_name"] as? String)?.ifBlank { null } ?: (it["baidu_name"] as? String) }
+    fun parseDlink(json: String): String? =
+        (((MiniJson.parse(json) as? Map<*, *>)?.get("list") as? List<*>)?.firstOrNull() as? Map<*, *>)?.get("dlink") as? String
+
+    /** 常见错误码的说明 */
+    fun errnoText(code: Int): String = when (code) {
+        -6, 111, 110 -> "登录已失效，请重新登录百度网盘"
+        -7 -> "文件夹名不对或没有权限（应用文件夹应该是 /apps/你的应用名）"
+        -9 -> "文件不存在"
+        -10, 31112 -> "网盘空间不够"
+        2 -> "参数错误"
+        31034, 31023 -> "请求太频繁，稍后会自动重试"
+        else -> "错误码 $code"
+    }
+}
+
+/**
  * WebDAV（坚果云、Nextcloud、群晖等）：地址拼接、解析 PROPFIND 返回的文件列表。
  */
 object WebDavApi {

@@ -18,7 +18,7 @@ object CloudConfig {
     private const val FILE = "cloud_sync"
     private fun sp(ctx: Context) = ctx.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    /** off / onedrive / webdav */
+    /** off / onedrive / baidu / webdav */
     fun provider(ctx: Context) = sp(ctx).getString("provider", "off") ?: "off"
     fun setProvider(ctx: Context, v: String) = sp(ctx).edit().putString("provider", v).apply()
     /** off / daily / weekly */
@@ -50,6 +50,32 @@ object CloudConfig {
     fun pendingVerifier(ctx: Context) = decrypt(sp(ctx).getString("pkce", null))
     fun pendingState(ctx: Context) = sp(ctx).getString("state", null)
     fun clearPending(ctx: Context) = sp(ctx).edit().remove("pkce").remove("state").apply()
+
+    // ---- 百度网盘（开放平台应用的 AppKey、SecretKey；令牌和 SecretKey 都加密保存）----
+    fun bdKey(ctx: Context) = sp(ctx).getString("bdKey", "") ?: ""
+    fun bdSecret(ctx: Context) = decrypt(sp(ctx).getString("bdSecret", null)) ?: ""
+    fun bdFolder(ctx: Context) = sp(ctx).getString("bdFolder", app.birthdayreminder.domain.BaiduPanApi.DEFAULT_FOLDER)
+        ?: app.birthdayreminder.domain.BaiduPanApi.DEFAULT_FOLDER
+    fun saveBaiduApp(ctx: Context, key: String, secret: String, folder: String) = sp(ctx).edit()
+        .putString("bdKey", key.trim()).putString("bdSecret", encrypt(secret.trim()))
+        .putString("bdFolder", normalizeBdFolder(folder)).apply()
+    /** 文件夹统一成 /apps/xxx 的样子：没写 /apps/ 就补上 */
+    private fun normalizeBdFolder(f: String): String {
+        val t = f.trim().trim('/')
+        if (t.isEmpty()) return app.birthdayreminder.domain.BaiduPanApi.DEFAULT_FOLDER
+        return if (t.startsWith("apps/")) "/$t" else "/apps/$t"
+    }
+    fun bdAccess(ctx: Context) = decrypt(sp(ctx).getString("bdAccess", null))
+    fun bdRefresh(ctx: Context) = decrypt(sp(ctx).getString("bdRefresh", null))
+    fun bdExpires(ctx: Context) = sp(ctx).getLong("bdExp", 0L)
+    fun bdAccount(ctx: Context) = sp(ctx).getString("bdAccount", "") ?: ""
+    fun setBdAccount(ctx: Context, v: String) = sp(ctx).edit().putString("bdAccount", v).apply()
+    fun saveBdTokens(ctx: Context, access: String, refresh: String?, expiresAt: Long) {
+        val e = sp(ctx).edit().putString("bdAccess", encrypt(access)).putLong("bdExp", expiresAt)
+        if (refresh != null) e.putString("bdRefresh", encrypt(refresh))
+        e.apply()
+    }
+    fun clearBaidu(ctx: Context) = sp(ctx).edit().remove("bdAccess").remove("bdRefresh").remove("bdExp").remove("bdAccount").apply()
 
     // ---- WebDAV ----
     fun davUrl(ctx: Context) = sp(ctx).getString("davUrl", "") ?: ""

@@ -37,6 +37,7 @@ object CloudSync {
 
     fun storage(ctx: Context): CloudStorage? = when (CloudConfig.provider(ctx)) {
         "onedrive" -> if (OneDriveAuth.signedIn(ctx)) OneDriveStorage(ctx.applicationContext) else null
+        "baidu" -> if (BaiduAuth.signedIn(ctx)) BaiduPanStorage(ctx.applicationContext) else null
         "webdav" -> CloudConfig.davUrl(ctx).takeIf { it.isNotBlank() }?.let {
             WebDavStorage(it, CloudConfig.davFolder(ctx), CloudConfig.davUser(ctx), CloudConfig.davPass(ctx))
         }

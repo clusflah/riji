@@ -78,7 +78,7 @@ private data class BirthdayRow(val birthday: Birthday, val next: LocalDate?, val
 private data class ReminderRow(val reminder: Reminder, val next: LocalDate?)
 
 /** 标签名，按 OpenTarget 里的 TAB_xxx 编号：日记、提醒、健身数据、闹钟、过敏记录、常用语、生日（无过敏记录版不显示“过敏记录”） */
-private val TAB_NAMES = listOf("日记", "提醒", "健身数据", "闹钟", "过敏记录", "用药就医", "生理期", "常用语", "生日")
+private val TAB_NAMES = listOf("日记", "提醒", "健身数据", "闹钟", "过敏记录", "用药就医", "生理期", "常用语", "生日", "学习")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -158,6 +158,7 @@ fun ListScreen(
                     OpenTarget.TAB_ALLERGY -> onNewAllergy()
                     OpenTarget.TAB_MED -> onNewMed()
                     OpenTarget.TAB_PHRASE -> onNewPhrase()
+                    OpenTarget.TAB_STUDY -> app.birthdayreminder.ui.study.StudyUi.requestNew(LocalDate.now())
                     else -> onNewBirthday()
                 }
             }) { Icon(Icons.Default.Add, contentDescription = "添加") }
@@ -250,6 +251,7 @@ fun DataTabContent(
             OpenTarget.TAB_ALLERGY -> AllergyListContent(onEdit = onEditAllergy)
             OpenTarget.TAB_MED -> MedContent(onEdit = onEditMed, onEditRecord = onEditRecord)
             OpenTarget.TAB_CYCLE -> CycleContent()
+            OpenTarget.TAB_STUDY -> app.birthdayreminder.ui.study.StudyContent()
             OpenTarget.TAB_PHRASE -> PhraseListContent(onEdit = onEditPhrase)
             OpenTarget.TAB_BIRTHDAY -> LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
                 if (bRows.isEmpty()) item { EmptyHint("还没有生日，点右下角“+”添加") }

@@ -237,6 +237,7 @@ fun CalendarScreen(
                     OpenTarget.TAB_ALLERGY -> { { onNewAllergy(ui.selected) } }
                     OpenTarget.TAB_PHRASE -> { { onNewPhrase() } }
                     OpenTarget.TAB_BIRTHDAY -> { { onNewBirthday() } }
+                    OpenTarget.TAB_STUDY -> { { app.birthdayreminder.ui.study.StudyUi.requestNew(ui.selected) } }
                     else -> null
                 }
                 if (addAction != null) HideOnScroll(fabHide) {
@@ -351,7 +352,9 @@ fun CalendarScreen(
                 "记录" to listOfNotNull(
                     if (on(Modules.DIARY)) SheetItem("diary", "日记", go { onNewDiary(ui.selected) }) else null,
                     if (on(Modules.REMINDER)) SheetItem("reminder", "提醒", go { onNewReminder(ui.selected) }) else null,
-                    if (on(Modules.FITNESS)) SheetItem("fitness", "健身数据", go { onNewFitness(ui.selected) }) else null
+                    if (on(Modules.FITNESS)) SheetItem("fitness", "健身数据", go { onNewFitness(ui.selected) }) else null,
+                    // 学习：切到“学习”标签并打开记录框
+                    if (on(Modules.STUDY)) SheetItem("study", "学习", go { homeTab = OpenTarget.TAB_STUDY; app.birthdayreminder.ui.study.StudyUi.requestNew(ui.selected) }) else null
                 ),
                 "健康" to listOfNotNull(
                     if (on(Modules.ALLERGY)) SheetItem("allergy", "过敏记录", go { onNewAllergy(ui.selected) }) else null,
@@ -376,7 +379,7 @@ fun CalendarScreen(
 
 /** 日程区域的标签：全部（时间轴）+“数据”里的各项，顺序：全部、日记、提醒、生日，其它在后 */
 private val HOME_TABS = listOf(-1 to "全部", OpenTarget.TAB_DIARY to "日记", OpenTarget.TAB_REMINDER to "提醒",
-    OpenTarget.TAB_FITNESS to "健身", OpenTarget.TAB_ALARM to "闹钟", OpenTarget.TAB_MED to "用药就医", OpenTarget.TAB_CYCLE to "生理期",
+    OpenTarget.TAB_FITNESS to "健身", OpenTarget.TAB_STUDY to "学习", OpenTarget.TAB_ALARM to "闹钟", OpenTarget.TAB_MED to "用药就医", OpenTarget.TAB_CYCLE to "生理期",
     OpenTarget.TAB_ALLERGY to "过敏", OpenTarget.TAB_PHRASE to "常用语", OpenTarget.TAB_BIRTHDAY to "生日")
 
 /** 某个标签对应的功能是否开着（无过敏记录版不显示过敏） */
@@ -607,6 +610,8 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
             if (day.hasBirthday) Dot(LiColors.birthday)
             if (day.hasReminder) Dot(LiColors.reminder)
             if (day.hasDiary) Dot(LiColors.diary)
+            // 学习：黑色（深色模式下黑点看不见，用正文色，也就是白色）
+            if (day.hasStudy) Dot(MaterialTheme.colorScheme.onSurface)
             // 生理期：经期红点、预测经期浅红、排卵日 / 易孕期绿点
             when (day.cycleMark) {
                 CycleLogic.Mark.PERIOD -> Dot(LiColors.period)
@@ -839,6 +844,7 @@ private fun cellDescription(day: CalendarDayUi, showLunar: Boolean): String = bu
     if (fest != null) add(fest) else if (showLunar) add("农历" + day.lunarLabel)
     if (day.hasBirthday) add("有生日")
     if (day.hasReminder || day.hasDiary) add("有提醒或日记")
+    if (day.hasStudy) add("有学习记录")
     val cycleText = when (day.cycleMark) {
         CycleLogic.Mark.PERIOD -> "经期"
         CycleLogic.Mark.PREDICTED -> "预测经期"
@@ -852,10 +858,12 @@ private fun cellDescription(day: CalendarDayUi, showLunar: Boolean): String = bu
 /** 月历下方的图例：只列这个月出现过的颜色 */
 @Composable
 private fun DotLegend(days: List<CalendarDayUi>) {
+    val ink = MaterialTheme.colorScheme.onSurface
     val items = buildList {
         if (days.any { it.inCurrentMonth && it.hasBirthday }) add(LiColors.birthday to "生日")
         if (days.any { it.inCurrentMonth && it.hasReminder }) add(LiColors.reminder to "提醒")
         if (days.any { it.inCurrentMonth && it.hasDiary }) add(LiColors.diary to "日记")
+        if (days.any { it.inCurrentMonth && it.hasStudy }) add(ink to "学习")
         if (days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.PERIOD || it.cycleMark == CycleLogic.Mark.PREDICTED) }) add(LiColors.period to "经期")
         if (days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.FERTILE || it.cycleMark == CycleLogic.Mark.OVULATION) }) add(LiColors.fertile to "易孕期")
     }

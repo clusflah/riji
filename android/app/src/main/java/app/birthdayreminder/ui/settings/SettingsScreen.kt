@@ -213,9 +213,11 @@ fun SettingsScreen(onBack: () -> Unit) {
                         if (s.lastBackup > 0) "上次 " + SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(s.lastBackup)) else "还没有备份过") { sub = "数据备份" }
                     val cloudVer by CloudSync.version
                     val odVer by OneDriveAuth.version
-                    val cloudSummary = remember(cloudVer, odVer, sub) {
+                    val bdVer by app.birthdayreminder.cloud.BaiduAuth.version
+                    val cloudSummary = remember(cloudVer, odVer, bdVer, sub) {
                         when (CloudConfig.provider(ctx)) {
                             "onedrive" -> "OneDrive" + (if (OneDriveAuth.signedIn(ctx)) "" else " · 未登录")
+                            "baidu" -> "百度网盘" + (if (app.birthdayreminder.cloud.BaiduAuth.signedIn(ctx)) "" else " · 未登录")
                             "webdav" -> "WebDAV"
                             else -> "关闭"
                         } + (if (CloudConfig.provider(ctx) != "off" && CloudConfig.lastError(ctx).isNotBlank()) " · 上次失败"
@@ -320,7 +322,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Text("每次在后台生成一份完整备份（数据、设置、Key、图片、附件、铃声）上传到云盘，云盘上只保留最新几份。",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    listOf("off" to "关闭", "onedrive" to "OneDrive", "webdav" to "WebDAV").forEach { (v, l) ->
+                    listOf("off" to "关闭", "onedrive" to "OneDrive", "baidu" to "百度网盘", "webdav" to "WebDAV").forEach { (v, l) ->
                         FilterChip(selected = provider == v, onClick = {
                             val go = { provider = v; CloudConfig.setProvider(ctx, v); CloudSync.schedule(ctx) }
                             // 备份里有数据和 Key：开启云盘备份前先验证身份（手机支持的话）
@@ -345,6 +347,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                         OutlinedButton(onClick = { (ctx as? Activity)?.let { a -> OneDriveAuth.start(a)?.let { msg = it } } }) { Text("登录 OneDrive") }
                     }
                 }
+                if (provider == "baidu") BaiduPanSection(onMessage = { msg = it })
                 if (provider == "webdav") {
                     OutlinedTextField(value = davUrl, onValueChange = { davUrl = it }, singleLine = true, label = { Text("服务器地址（如 https://dav.jianguoyun.com/dav/）") }, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = davUser, onValueChange = { davUser = it }, singleLine = true, label = { Text("用户名") }, modifier = Modifier.fillMaxWidth())

@@ -52,6 +52,7 @@ data class CalendarDayUi(
     val hasBirthday: Boolean,
     val hasReminder: Boolean,
     val hasDiary: Boolean,
+    val hasStudy: Boolean = false,
     val holidayTag: String?,     // "休" 法定假期 / "班" 调休补班 / null 普通日
     val festivalLabel: String?,  // 节日或节气（有的话格子里代替农历显示）
     val cycleMark: CycleLogic.Mark = CycleLogic.Mark.NONE   // 生理期：经期 / 预测经期 / 排卵日 / 易孕期
@@ -116,6 +117,8 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private var allRecords: List<MedicalRecord> = emptyList()
     private var allCycle: List<CycleDay> = emptyList()
     private var allAlarms: List<Alarm> = emptyList()
+    /** 有学习记录的日子（日历上画黑色小圆点） */
+    private var studyDates: Set<String> = emptySet()
     private var holidays: HolidayIndex = HolidayRepository.index.value
     private var settings: AppSettings = SettingsStore.get(app)
     private var month: YearMonth = YearMonth.now()
@@ -128,6 +131,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         rebuild()
         // 闹钟：时间轴上显示选中这天会响的闹钟（私密的不显示）
         viewModelScope.launch { db.alarmDao().observeAll().collect { l -> allAlarms = l.filter { !it.isPrivate }; rebuild() } }
+        viewModelScope.launch { db.studyDao().observeLogs().collect { l -> studyDates = l.map { it.date }.toSet(); rebuild() } }
         viewModelScope.launch {
             // combine 最多一次合 5 个，分两组再合起来
             val main = combine(
@@ -212,6 +216,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val app = getApplication<Application>()
         val cycleMarks = if (allCycle.isEmpty()) emptyMap() else CycleLogic.marks(allCycle, gridStart, gridStart.plusDays(41), today,
             Prefs.cycleBirthControl(app), Prefs.cycleDefaultLength(app), Prefs.cycleDefaultPeriod(app))
+        val study = if (Prefs.moduleOn(app, Modules.STUDY)) studyDates else emptySet()
         return (0 until 42).map { i ->
             val date = gridStart.plusDays(i.toLong())
             CalendarDayUi(
@@ -222,6 +227,7 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 hasBirthday = allBirthdays.any { Occurrence.birthdayOn(it, date) },
                 hasReminder = allReminders.any { Occurrence.reminderOn(it, date) },
                 hasDiary = allDiaries.any { it.date == date.toString() },
+                hasStudy = date.toString() in study,
                 holidayTag = when {
                     holidays.off.containsKey(date) -> "休"
                     holidays.work.containsKey(date) -> "班"

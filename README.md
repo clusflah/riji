@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.6.1**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
+**版本 1.7.0**（更新记录见 [CHANGELOG.md](CHANGELOG.md)；云盘备份设置见 [CLOUD_BACKUP.md](CLOUD_BACKUP.md)）
 
 农历日历 + 节假日/调休 + 生日、提醒事项、闹钟、日记、常用语 + 健身、过敏、用药就医、生理期 + 隐私空间 + AI 助手 + 桌面小组件 + 云盘备份。
 纯原生：Kotlin + Jetpack Compose + Room，没有网页界面，也不再依赖 Capacitor / Node。
@@ -91,6 +91,7 @@ cd android
 | 闹钟 | 仅一次/每天/工作日/休息日/自定义周几；工作日按法定假期和调休补班判断；稍后提醒、振动、自定义铃声（选本机音频，可试听）；系统不让响铃服务启动时，改发闹钟级别的通知兜底 |
 | 日记 | 所见即所得格式（加粗、斜体、标题、列表、引用）、表格、图片、附件；可添加位置（高德地图搜索/点选/手机定位）；✨ AI 润色 |
 | 常用语 | 标题 + 内容，按分类分组，一键复制 |
+| 学习 | 一条记录里记好几项内容（名称、数量、单位）+ 学习时长、开始时间；常用项目点一下就加一行；每天定时的学习提醒；今天 / 本周 / 本月统计和连续天数；可以从旧日记里识别“名称 数字”导入 |
 | 健身 | 分组记录训练、极限组；身体数据（体重曲线等），可从 Health Connect 自动同步心率、睡眠、体重、身高、体脂、血压、血氧 |
 | 过敏记录 | 记录每次过敏的情况（无过敏记录版没有这一项） |
 | 用药就医 | 药物与服药提醒、打卡，生病就医和复诊记录；复诊会显示在日历和日程里 |
@@ -100,7 +101,7 @@ cd android
 | AI 助手 | OpenAI / Claude / Gemini / Grok / DeepSeek，可对话查看、添加生日、提醒、闹钟、日记；支持语音输入和朗读回复（Azure / Gemini / Google / 系统语音）；Key、对话记录只存本机 |
 | 桌面小组件 | 可选日历、生日、提醒、闹钟、日记、健身、过敏、今天的用药、生理期状态、常用语；2×2、4×2，可长按拖动改变大小，内容按尺寸自动调整；点击跳到对应页面 |
 | 设置 | 通知、每日提醒时间、默认提前提醒、节假日提醒、农历显示、主题、高德 Key；功能开关（不用的项目可以整个关掉）；“提醒检查”（通知、精确闹钟、全屏通知等是否正常，一键跳到系统设置） |
-| 备份 | 导出/恢复 .zip（数据、设置、Key、图片、附件、铃声），旧的 .json 备份也能恢复；定时自动备份到云盘（OneDrive 或 WebDAV：坚果云、Nextcloud、群晖、Koofr 等） |
+| 备份 | 导出/恢复 .zip（数据、设置、Key、图片、附件、铃声），旧的 .json 备份也能恢复；定时自动备份到云盘（OneDrive、百度网盘或 WebDAV：坚果云、Nextcloud、群晖、Koofr 等） |
 
 ## 代码结构（`android/app/src/main/java/app/birthdayreminder/`）
 
@@ -128,7 +129,7 @@ ui/         Compose 界面：calendar / edit / list / alarm / diary / phrase / h
 
 ## 数据
 
-- 本地数据库 `li-native.db`（Room，数据库第 10 版，升级都写了正式迁移，不会清数据）。
+- 本地数据库 `li-native.db`（Room，数据库第 11 版，升级都写了正式迁移，不会清数据）。
 - 日记图片存在应用私有目录 `files/diary_images/`，闹钟铃声在 `files/alarm_sounds/`。
 - 备份是 `.zip`：`backup.json`（全部数据、设置和 Key）+ 图片、附件、自定义铃声文件。
   旧的 `.json` 备份（包括以前网页版“历”导出的）也能恢复。
