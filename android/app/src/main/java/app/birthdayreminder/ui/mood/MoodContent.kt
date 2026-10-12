@@ -81,30 +81,28 @@ fun MoodQuickBar(vm: MoodViewModel = viewModel()) {
     var showStats by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<app.birthdayreminder.data.MoodLog?>(null) }
     LaunchedEffect(lastId) { if (lastId != null) { delay(5000); lastId = null } }
+    // 紧凑的一行：标题、五个表情、统计入口；今天的记录 / 撤销在下面一小行（有才显示）
     SoftCard(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("此刻心情", fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showStats = true }) { Text("心情统计 ›") }
-            }
-            // 从差到好排，像打分一样从左往右
-            Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                MoodLogic.LEVELS.reversed().forEach { l ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { lastId = vm.record(l.value) }.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Text(l.emoji, fontSize = 30.sp)
-                        Text(l.label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text("心情", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                // 从差到好排，像打分一样从左往右；表情下面不写字，长按（无障碍）读得到名字
+                Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.weight(1f)) {
+                    MoodLogic.LEVELS.reversed().forEach { l ->
+                        Text(l.emoji, fontSize = 22.sp, lineHeight = 26.sp,
+                            modifier = Modifier.clip(CircleShape).clickable(onClickLabel = l.label) { lastId = vm.record(l.value) }.padding(6.dp))
                     }
                 }
+                Text("统计 ›", fontSize = 13.sp, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { showStats = true }.padding(6.dp))
             }
-            if (lastId != null) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("已记录", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                TextButton(onClick = { lastId?.let { vm.delete(it) }; lastId = null }) { Text("撤销") }
-            }
-            if (todayLogs.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                Text("今天", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (lastId != null || todayLogs.isNotEmpty()) Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(bottom = 4.dp).horizontalScroll(rememberScrollState())) {
+                if (lastId != null) Text("已记录 · 撤销", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { lastId?.let { vm.delete(it) }; lastId = null })
+                else Text("今天", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 // 点一下可以删掉记错的
-                todayLogs.forEach { m -> Text(MoodLogic.level(m.level).emoji + " " + hm(m.at), fontSize = 13.sp, modifier = Modifier.clickable { deleting = m }) }
+                todayLogs.forEach { m -> Text(MoodLogic.level(m.level).emoji + hm(m.at), fontSize = 12.sp, modifier = Modifier.clickable { deleting = m }) }
             }
         }
     }

@@ -17,7 +17,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material.icons.outlined.StarOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
@@ -180,7 +184,7 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
                         OutlinedTextField(value = r.name, onValueChange = { r.name = it.take(40) }, singleLine = true, label = { Text("内容") }, modifier = Modifier.weight(1.6f))
                         OutlinedTextField(value = r.amount, onValueChange = { v -> r.amount = v.filter { it.isDigit() || it == '.' }.take(7) }, singleLine = true,
                             label = { Text("量") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(0.8f))
-                        OutlinedTextField(value = r.unit, onValueChange = { r.unit = it.take(6) }, singleLine = true, label = { Text("单位") }, modifier = Modifier.weight(0.7f))
+                        UnitField(r, Modifier.weight(0.9f))
                         Column {
                             // 存成常用项目
                             IconButton(enabled = r.name.isNotBlank(), onClick = { vm.savePreset(r.toItem()); android.widget.Toast.makeText(ctx, "已存为常用项目", android.widget.Toast.LENGTH_SHORT).show() }) {
@@ -190,14 +194,12 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
                         }
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                    TextButton(onClick = { rows.add(Row3("", "", "")) }) { Text("＋ 加一行") }
-                    StudyLogic.UNITS.take(4).forEach { u ->
-                        val last = rows.lastOrNull()
-                        if (last != null && last.unit.isBlank()) AssistChip(onClick = { last.unit = u }, label = { Text(u) })
-                    }
-                }
+                TextButton(onClick = { rows.add(Row3("", "", "")) }) { Text("＋ 加一行") }
+                // 量按时间记的（单位选“分钟”“小时”）：合计出来，时长没填就用它
+                val byTime = StudyLogic.itemMinutes(rows.map { it.toItem() })
                 Text("学习时长（分钟）", style = MaterialTheme.typography.labelLarge)
+                if (byTime > 0) Text("按时间记的内容合计 ${StudyLogic.fmtMinutes(byTime)}" + if (minutes.isBlank()) "，时长不填就按这个算" else "",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     OutlinedTextField(value = minutes, onValueChange = { v -> minutes = v.filter { it.isDigit() }.take(4) }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.width(96.dp))
@@ -213,7 +215,8 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
                 if (items.isEmpty() && (minutes.toIntOrNull() ?: 0) == 0 && note.isBlank()) {
                     android.widget.Toast.makeText(ctx, "至少填一项学习内容或时长", android.widget.Toast.LENGTH_SHORT).show(); return@TextButton
                 }
-                vm.save(log.copy(date = date.toString(), items = StudyLogic.itemsToJson(items), minutes = (minutes.toIntOrNull() ?: 0).coerceIn(0, 24 * 60),
+                vm.save(log.copy(date = date.toString(), items = StudyLogic.itemsToJson(items),
+                    minutes = (minutes.toIntOrNull() ?: StudyLogic.itemMinutes(items)).coerceIn(0, 24 * 60),
                     time = time, note = note.trim()))
                 onDismiss()
             }) { Text("保存") }
@@ -226,6 +229,20 @@ private fun StudyEditor(vm: StudyViewModel, log: StudyLog, isNew: Boolean, onDis
         confirmButton = { TextButton(onClick = { vm.delete(log.id); confirmDelete = false; onDismiss() }) { Text("删除", color = MaterialTheme.colorScheme.error) } },
         dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } }
     )
+}
+
+/** 单位：可以直接输入，也可以点右边的小箭头从常用单位里选（含“分钟”“小时”，量就按时间记） */
+@Composable
+private fun UnitField(r: Row3, modifier: Modifier) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedTextField(value = r.unit, onValueChange = { r.unit = it.take(6) }, singleLine = true, label = { Text("单位") },
+            trailingIcon = { IconButton(onClick = { open = true }) { Icon(Icons.Default.ArrowDropDown, contentDescription = "选单位") } },
+            modifier = Modifier.fillMaxWidth())
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            StudyLogic.UNITS.forEach { u -> DropdownMenuItem(text = { Text(u) }, onClick = { r.unit = u; open = false }) }
+        }
+    }
 }
 
 /** 常用项目：列表、删除、添加（名称、默认数量、单位） */

@@ -26,6 +26,12 @@ class StudyLogicTest {
         assertEquals("逻辑填空 20题 · 背书", StudyLogic.summary(list))
     }
 
+    @Test fun timeUnitsAddUp() {
+        val items = listOf(StudyItem("听力", 30.0, "分钟"), StudyItem("阅读", 1.5, "小时"), StudyItem("逻辑填空", 20.0, "题"))
+        assertEquals(120, StudyLogic.itemMinutes(items))
+        assertEquals(listOf("分钟", "小时"), StudyLogic.parseDiaryText("听力 30分钟 阅读 2小时").map { it.unit })
+    }
+
     @Test fun formatsMinutes() {
         assertEquals("30分钟", StudyLogic.fmtMinutes(30))
         assertEquals("1小时25分", StudyLogic.fmtMinutes(85))

@@ -11,7 +11,17 @@ data class StudyItem(val name: String, val amount: Double? = null, val unit: Str
  * 学习的规则（纯逻辑）：一条记录里各项的存取、显示文字、统计，以及从旧日记里识别“名称 数字”的写法。
  */
 object StudyLogic {
-    val UNITS = listOf("题", "页", "篇", "个", "章", "节", "课", "词")
+    val UNITS = listOf("题", "分钟", "小时", "页", "篇", "个", "章", "节", "课", "词")
+
+    /** 按时间记的量折成分钟（“分钟”“小时”这两种单位），别的单位返回 null */
+    fun minutesOf(i: StudyItem): Double? = when (i.unit.trim()) {
+        "分钟", "分" -> i.amount
+        "小时", "h" -> i.amount?.times(60)
+        else -> null
+    }
+
+    /** 一条记录里按时间记的各项加起来有多少分钟（没有按时间记的就是 0） */
+    fun itemMinutes(items: List<StudyItem>): Int = Math.round(items.sumOf { minutesOf(it) ?: 0.0 }).toInt()
 
     fun itemsToJson(list: List<StudyItem>): String = MiniJson.write(list.filter { it.name.isNotBlank() }.map { i ->
         mapOf("name" to i.name.trim(), "amount" to i.amount, "unit" to i.unit.trim())
