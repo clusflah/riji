@@ -1,6 +1,6 @@
 # AGENTS.md
 
-给在这个仓库里干活的 AI 编程助手看的说明。项目介绍、功能、代码结构见 [README.md](README.md)，这里只写干活时要守的规矩。
+给在这个仓库里干活的 AI 编程助手看的说明。应用功能和使用见 [README.md](README.md)，编译、签名、代码结构见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)，这里只写干活时要守的规矩。
 
 ## 项目概况
 
