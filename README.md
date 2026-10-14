@@ -183,7 +183,7 @@
 - 用药提醒只是辅助工具，不能代替医生的建议，用药请遵医嘱。生理期预测仅供参考。
 - 用药就医的功能设计参考开源项目 [MedTimer](https://github.com/Futsch1/medTimer)（Copyright (c) Futsch1，MIT 许可证），生理期的功能设计参考 [Mooneva Cycle](https://github.com/aradar46/Mooneva-Cycle-Private-Period-Tracker)（GPL-3.0），都只参考了功能设计，按日迹自己的结构重新实现，没有复制它们的源代码。
 - 节假日数据来自 [holiday-cn](https://github.com/NateScarlet/holiday-cn)。
-- 自己编译、签名、发布的说明见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
+- 代码结构等开发说明见 [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)。
 
 ## 许可证
 

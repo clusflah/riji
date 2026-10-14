@@ -1,25 +1,8 @@
 # 日迹 开发说明
 
-自己编译、签名、发布日迹时看这里。应用功能和使用方法见 [README.md](../README.md)。
+改日迹代码时看这里。应用功能和使用方法见 [README.md](../README.md)。
 
 纯原生：Kotlin + Jetpack Compose + Room（响铃引擎和小组件是 Java），没有网页界面。
-
-## 打开和运行
-
-用 Android Studio 打开 **`android`** 这个文件夹（不是最外层），等 Gradle 同步完成，接上手机点运行。需要 JDK 21。
-命令行打包：
-
-```
-cd android
-./gradlew assembleDebug        # Windows 用 gradlew.bat
-# APK：android/app/build/outputs/apk/<版本>/debug/
-```
-
-GitHub 上也可以直接用 `.github/workflows/build-apk.yml` 在线打包（推送到 main 时自动运行，也可以手动触发）。
-在 [Actions](https://github.com/clusflah/riji/actions/workflows/build-apk.yml) 里打开最近一次成功的构建（需要登录 GitHub，90 天后过期），页面底部 Artifacts 里有两个压缩包，各含完整版和无过敏记录版两个 APK：
-
-- `riji-apk-release`：正式版（不可调试，运行更流畅）
-- `riji-apk-debug`：调试版
 
 ## 两个版本
 
@@ -32,31 +15,6 @@ GitHub 上也可以直接用 `.github/workflows/build-apk.yml` 在线打包（�
 
 在 Android Studio 左边栏 **Build Variants** 里把 `app` 切到 `fullDebug` 或 `noAllergyDebug`，再运行或打包。
 命令行：`./gradlew assembleFullDebug` / `./gradlew assembleNoAllergyDebug`。
-
-## 签名
-
-正式版用日迹自己的签名（`android/app/build.gradle` 的 `signingConfigs.release`）：
-
-- **本机**：从 `android/keystore.properties` 读（`storeFile`、`storePassword`、`keyAlias`、`keyPassword`），这个文件和签名文件都不提交到 git。
-- **GitHub Actions**：从仓库 Secrets 读：`RELEASE_KEYSTORE_BASE64`（签名文件的 base64）、`RELEASE_STORE_PASSWORD`、`RELEASE_KEY_ALIAS`、`RELEASE_KEY_PASSWORD`。
-- 都没有时退回调试签名，别人 fork 之后也能正常打包。
-
-> **签名文件一定要备份**（连同密码）。丢了就再也发不出能覆盖升级的新版本，只能让用户卸载重装。
-
-调试版签名：可选再加一个 `DEBUG_KEYSTORE_BASE64`（电脑上 `~/.android/debug.keystore` 的 base64），
-自动构建的调试版就和自己电脑上打的调试版签名一致；不设置则每次构建用临时签名。
-
-## 发布新版本
-
-改 `android/app/build.gradle` 里的 `versionName`，在 CHANGELOG.md 写好这一版的记录，README 开头的版本号也改掉，提交推送后打标签：
-
-```
-git tag -a v1.5.8 -m "日迹 1.5.8"
-git push origin v1.5.8
-```
-
-`.github/workflows/release.yml` 会检查标签和 `versionName` 是否一致，用上面的正式版签名打出两个 APK（缺签名 Secret 时直接失败），
-把 CHANGELOG 里这一版的内容作为说明，连同 SHA256SUMS.txt 发布到 Releases。
 
 ## 代码结构（`android/app/src/main/java/app/birthdayreminder/`）
 
