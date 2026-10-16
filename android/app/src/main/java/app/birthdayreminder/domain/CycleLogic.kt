@@ -120,7 +120,9 @@ object CycleLogic {
             val old = out[x]
             if (old == null || m.ordinal < old.ordinal) out[x] = m
         }
-        for (p in ps) { var x = p.start; while (!x.isAfter(p.end)) { put(x, Mark.PERIOD); x = x.plusDays(1) } }
+        // 只标真正记成经期的日子。periods() 会把中间漏记的一天连起来（算周期用），但日历上不能跟着标：
+        // 不然没记的那天是不是“经期”取决于后一天，改后一天，前一天也跟着变
+        for (x in days) if (isPeriod(x.flow)) d(x.date)?.let { put(it, Mark.PERIOD) }
         val pr = predict(ps, st, today) ?: return out
         // 预测的起点：没推迟就是预计日期；推迟了就从今天起往后排
         var start = if (pr.lateDays > 0) today else pr.nextStart
