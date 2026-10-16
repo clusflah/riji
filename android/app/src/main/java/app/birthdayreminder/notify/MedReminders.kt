@@ -79,8 +79,11 @@ object MedActions {
     }
 }
 
-/** 用药通知：单独的通知渠道（可以单独设置铃声、重要程度） */
+/** 用药通知：单独的通知渠道（可以单独设置铃声、重要程度）。私密的药品和就医记录照样提醒，但不写药名、病情 */
 object MedNotify {
+    /** 通知里显示的药名：私密药品不写名字（空字符串），免得在锁屏和通知栏露出来 */
+    fun shownName(m: Medication) = if (m.isPrivate) "" else m.name
+
     const val CHANNEL = "medication"
     private const val LOW_BASE = 32000
     private const val EXP_BASE = 33000
@@ -115,7 +118,7 @@ object MedNotify {
         }
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("💊 该吃药了：$name")
+            .setContentTitle(if (name.isBlank()) "💊 该吃药了" else "💊 该吃药了：$name")
             .setContentText("$time · " + (dosage.ifBlank { MedLogic.fmt(amount) + unit }))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -145,7 +148,7 @@ object MedNotify {
         if (!allowed(ctx)) return
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("💊 ${m.name} 快吃完了")
+            .setContentTitle(if (m.isPrivate) "💊 有一种药快吃完了" else "💊 ${m.name} 快吃完了")
             .setContentText("还剩 ${MedLogic.fmt(m.stock ?: 0.0)}${m.unit}，记得补药")
             .setAutoCancel(true).setContentIntent(openApp(ctx)).build()
         ctx.getSystemService(NotificationManager::class.java).notify(LOW_BASE + (m.id.hashCode() and 0x3FF), n)
@@ -156,7 +159,7 @@ object MedNotify {
         if (!allowed(ctx)) return
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle("💊 ${m.name} 已过有效期")
+            .setContentTitle(if (m.isPrivate) "💊 有一种药已过有效期" else "💊 ${m.name} 已过有效期")
             .setContentText("有效期到 ${m.expiry}，请检查后再服用")
             .setAutoCancel(true).setContentIntent(openApp(ctx)).build()
         ctx.getSystemService(NotificationManager::class.java).notify(EXP_BASE + (m.id.hashCode() and 0x3FF), n)
@@ -202,7 +205,7 @@ object MedScheduler {
         ups.forEachIndexed { i, u ->
             val m = byId[u.dose.medId] ?: return@forEachIndexed
             val intent = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW)
-                .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", m.name).putExtra("dosage", m.dosage)
+                .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", MedNotify.shownName(m)).putExtra("dosage", if (m.isPrivate) "" else m.dosage)
                 .putExtra("date", u.dose.date.toString()).putExtra("time", u.dose.time).putExtra("amount", u.dose.amount).putExtra("unit", m.unit)
             val pi = PendingIntent.getBroadcast(app, BASE + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             try {
@@ -223,7 +226,7 @@ object MedScheduler {
         val nowMs = System.currentTimeMillis()
         var n = 0
         for (f in MedicalLogic.upcomingFollowUps(if (on) dao.getRecords() else emptyList(), LocalDate.now())) {
-            val text = MedicalLogic.followUpText(f.record)
+            val text = if (f.record.isPrivate) "打开日迹查看" else MedicalLogic.followUpText(f.record)
             for ((at, title) in listOf(
                 f.date.minusDays(1).atTime(20, 0) to "🏥 明天要复诊",
                 f.date.atTime(9, 0) to "🏥 今天要复诊"
