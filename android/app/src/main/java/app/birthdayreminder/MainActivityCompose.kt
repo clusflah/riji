@@ -111,6 +111,9 @@ class MainActivityCompose : FragmentActivity() {
         // 有些系统切到别的应用再回来会重置刷新率，回来时再设一次
         applyRefreshRate(this)
         if (PrivacySession.onForeground()) privacyKicked = true
+        // 用药提醒：每次回到 App 都重新排一次（接下来 48 小时），也顺便检查过期药品。
+        // 放在 onStart 而不是 onCreate：App 一直留在后台时 onCreate 不会再走
+        MedScheduler.reschedule(this)
         // 自动备份：到时间了就在后台备份一次（没打开自动备份、或者还没到时间，什么都不做）
         lifecycleScope.launch(Dispatchers.IO) { try { AutoBackup.runIfDue(this@MainActivityCompose) } catch (e: Exception) { } }
     }
@@ -137,8 +140,6 @@ class MainActivityCompose : FragmentActivity() {
         super.onCreate(savedInstanceState)
         // 健身项目设置（顺序、隐藏、自定义项目）：其它地方用到项目列表之前先载入
         FitnessFieldStore.load(this)
-        // 用药提醒：每次打开 App 重新排一次（接下来 48 小时），也顺便检查过期药品
-        MedScheduler.reschedule(this)
         CycleScheduler.reschedule(this)
         // Health Connect 自动同步：按开关排好后台任务
         HealthAutoSync.schedule(this)

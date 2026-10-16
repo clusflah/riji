@@ -163,13 +163,19 @@ object MedNotify {
     }
 }
 
-/** 用药提醒的排程：接下来 48 小时里还没记录的每一次服药，各排一个准时闹钟 */
+/**
+ * 用药提醒的排程：接下来 48 小时里还没记录的每一次服药，各排一个准时闹钟。
+ * 每次提醒响了都会再往后排一次，所以不打开 App 也能一直提醒下去。
+ */
 object MedScheduler {
     private const val BASE = 30000
     private const val MAX = 60
     private const val PREF = "med_sched"
     private const val FU_BASE = 35000
     private const val FU_MAX = 40
+
+    /** 通知编号按这一次服药固定下来：重排时顺序会变，用序号的话后面的提醒会顶掉还没处理的通知 */
+    private fun notifId(doseKey: String) = BASE + 1000 + Math.floorMod(doseKey.hashCode(), 1000)   // 31000–31999，不和低库存（32000 起）撞
 
     fun reschedule(ctx: Context) {
         val app = ctx.applicationContext
@@ -196,7 +202,7 @@ object MedScheduler {
         ups.forEachIndexed { i, u ->
             val m = byId[u.dose.medId] ?: return@forEachIndexed
             val intent = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW)
-                .putExtra("nid", BASE + 1000 + i).putExtra("medId", m.id).putExtra("name", m.name).putExtra("dosage", m.dosage)
+                .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", m.name).putExtra("dosage", m.dosage)
                 .putExtra("date", u.dose.date.toString()).putExtra("time", u.dose.time).putExtra("amount", u.dose.amount).putExtra("unit", m.unit)
             val pi = PendingIntent.getBroadcast(app, BASE + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             try {
@@ -276,7 +282,15 @@ class MedReceiver : BroadcastReceiver() {
         val amount = intent.getDoubleExtra("amount", 1.0)
         val unit = intent.getStringExtra("unit") ?: ""
         when (intent.action) {
-            ACTION_SHOW -> MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
+            ACTION_SHOW -> {
+                MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
+                // 以前只在冷启动 App、点通知按钮时才排后面 48 小时的提醒：App 一直开在后台、通知又没点，
+                // 两天后就不再提醒了。现在每响一次就接着往后排
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try { MedScheduler.rescheduleNow(app) } catch (e: Exception) { } finally { pending.finish() }
+                }
+            }
             ACTION_SNOOZE -> {
                 app.getSystemService(NotificationManager::class.java).cancel(nid)
                 val i = Intent(app, MedReceiver::class.java).setAction(ACTION_SHOW).putExtras(intent)
