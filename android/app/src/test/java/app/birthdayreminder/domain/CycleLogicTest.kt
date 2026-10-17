@@ -32,4 +32,12 @@ class CycleLogicTest {
     @Test fun recordedDayIsMarkedAsPeriod() {
         assertEquals(CycleLogic.Mark.PERIOD, mark15(base + day("2026-10-15", 2)))
     }
+
+    @Test fun autoFillStopsAtDayWithChosenFlow() {
+        // 15 号来了，16 号已经改成点滴、17 号以后被取消了：把 15 号改掉再改回经期，16、17 号都不该被补回来
+        val days = listOf(day("2026-10-16", 1))
+        assertEquals(emptyList<LocalDate>(), CycleLogic.autoFillDates(days, d15, 5))
+        // 后面都没记过：照常补到一共 5 天
+        assertEquals(4, CycleLogic.autoFillDates(emptyList(), d15, 5).size)
+    }
 }

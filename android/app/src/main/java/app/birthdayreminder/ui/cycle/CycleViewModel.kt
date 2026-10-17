@@ -63,15 +63,13 @@ class CycleViewModel(app: Application, val profile: String) : AndroidViewModel(a
         if (!isPrivate) CycleScheduler.reschedule(getApplication())
     }
 
-    /** 新一次经期从 start 开始：后面的日子标成经期；已经记了别的（症状、心情…）的日子保留原来的内容，只补上经期；已经选了流量的日子不动 */
+    /** 新一次经期从 start 开始：后面的日子标成经期；已经记了别的（症状、心情…）的日子保留原来的内容，只补上经期；补到已经选过流量的日子就停（见 autoFillDates） */
     private suspend fun autoFill(start: LocalDate) {
         val all = db.cycleDao().getAll(profile)
         val len = Prefs.cycleDefaultPeriod(getApplication(), profile)
         val now = System.currentTimeMillis()
         for (x in CycleLogic.autoFillDates(all, start, len)) {
             val old = all.firstOrNull { it.date == x.toString() }
-            // 已经选过流量的（包括“点滴”）是用户自己记的，不改
-            if (old != null && old.flow > 0) continue
             db.cycleDao().upsert((old ?: CycleDay(x.toString(), profile = profile)).copy(flow = CycleLogic.PERIOD_ONLY, updatedAt = now))
         }
     }

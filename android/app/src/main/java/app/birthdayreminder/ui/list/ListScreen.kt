@@ -223,6 +223,7 @@ fun DataTabContent(
     onEditRecord: (String) -> Unit,
     onEditPhrase: (String) -> Unit,
     onEditBirthday: (String) -> Unit,
+    selectedDate: LocalDate? = null,      // 首页月历上选中的日子（生理期“今天”页用来改那一天）
     bvm: BirthdayViewModel = viewModel(),
     rvm: ReminderViewModel = viewModel()
 ) {
@@ -250,7 +251,7 @@ fun DataTabContent(
             OpenTarget.TAB_ALARM -> AlarmListContent(onEdit = onEditAlarm)
             OpenTarget.TAB_ALLERGY -> AllergyListContent(onEdit = onEditAllergy)
             OpenTarget.TAB_MED -> MedContent(onEdit = onEditMed, onEditRecord = onEditRecord)
-            OpenTarget.TAB_CYCLE -> CycleContent()
+            OpenTarget.TAB_CYCLE -> CycleContent(selected = selectedDate)
             OpenTarget.TAB_STUDY -> app.birthdayreminder.ui.study.StudyContent()
             OpenTarget.TAB_PHRASE -> PhraseListContent(onEdit = onEditPhrase)
             OpenTarget.TAB_BIRTHDAY -> LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
