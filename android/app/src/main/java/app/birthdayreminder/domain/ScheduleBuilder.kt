@@ -19,11 +19,15 @@ object ScheduleBuilder {
     /**
      * 一条要定时弹出的通知。
      * reminderId / occurrence：只有提醒事项才有（哪条提醒、哪一天那次），通知上的“完成”“稍后提醒”按钮靠它们知道操作的是谁。
+     * source：来自哪条数据（生日 / 提醒 / 节假日），和 at 一起组成 key，用来固定通知编号、记“答应过要弹”的名单。
      */
     data class Item(
         val at: Long, val title: String, val body: String,
-        val reminderId: String? = null, val occurrence: String? = null
-    )
+        val reminderId: String? = null, val occurrence: String? = null,
+        val source: String = ""
+    ) {
+        val key: String get() = "$source|${occurrence ?: ""}|$at"
+    }
 
     fun build(
         birthdays: List<Birthday>,
@@ -61,8 +65,8 @@ object ScheduleBuilder {
                         1 -> "明天"
                         else -> "${a}天后（${k.monthValue}月${k.dayOfMonth}日）"
                     }
-                    items += if (b.isPrivate) Item(at, "🎂 生日提醒", whenText)      // 不写名字和年龄，也不出现“私密”字样
-                    else Item(at, "🎂 ${b.name}的生日", whenText + (if (age != null) " · ${age}岁生日" else ""))
+                    items += if (b.isPrivate) Item(at, "🎂 生日提醒", whenText, source = "b:${b.id}")      // 不写名字和年龄，也不出现“私密”字样
+                    else Item(at, "🎂 ${b.name}的生日", whenText + (if (age != null) " · ${age}岁生日" else ""), source = "b:${b.id}")
                 }
             }
         }
@@ -80,7 +84,7 @@ object ScheduleBuilder {
                 if (at <= now) continue
                 val prefix = if (adv > 0) (Occurrence.advanceLabels[adv] ?: "提前${adv}分钟") + "：" else ""
                 items += Item(at, if (r.isPrivate) "🔔 提醒" else "🔔 ${r.title}", "$prefix${k.monthValue}月${k.dayOfMonth}日 ${r.time.ifBlank { "全天" }}",
-                    reminderId = r.id, occurrence = k.toString())
+                    reminderId = r.id, occurrence = k.toString(), source = "r:${r.id}")
             }
         }
 
@@ -92,10 +96,10 @@ object ScheduleBuilder {
                 val hat = atTime(k.minusDays(1), null)
                 if (hat <= now) continue
                 holidays.work[k]?.let { name ->
-                    items += Item(hat, "💼 明天周${week[k.dayOfWeek.value % 7]}要上班", name + "调休补班")
+                    items += Item(hat, "💼 明天周${week[k.dayOfWeek.value % 7]}要上班", name + "调休补班", source = "hw:$k")
                 }
                 holidays.starts[k]?.let { h ->
-                    items += Item(hat, "🏖️ 明天起放假：${h.name}", HolidayText.range(h) + " · 共${HolidayText.days(h)}天")
+                    items += Item(hat, "🏖️ 明天起放假：${h.name}", HolidayText.range(h) + " · 共${HolidayText.days(h)}天", source = "hs:$k")
                 }
             }
         }

@@ -1,9 +1,11 @@
 package app.birthdayreminder.notify
 
 import android.annotation.SuppressLint
+import android.app.ActivityManager
 import android.app.AlarmManager
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -29,13 +31,18 @@ object Reliability {
         val app = ctx.applicationContext
         val settings = SettingsStore.get(app)
         val nm = app.getSystemService(NotificationManager::class.java)
-        val channelOn = Build.VERSION.SDK_INT < 26 ||
-            (nm.getNotificationChannel(NotificationHelper.CHANNEL_ID)?.importance ?: NotificationManager.IMPORTANCE_DEFAULT) != NotificationManager.IMPORTANCE_NONE
+        // “生日与提醒”和“用药提醒”两类通知，哪个被单独关掉都算
+        val channelOn = Build.VERSION.SDK_INT < 26 || listOf(NotificationHelper.CHANNEL_ID, MedNotify.CHANNEL).all {
+            (nm.getNotificationChannel(it)?.importance ?: NotificationManager.IMPORTANCE_DEFAULT) != NotificationManager.IMPORTANCE_NONE
+        }
         val notifOk = NotificationManagerCompat.from(app).areNotificationsEnabled() && channelOn
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val exactOk = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
         val pm = app.getSystemService(Context.POWER_SERVICE) as PowerManager
         val batteryOk = pm.isIgnoringBatteryOptimizations(app.packageName)
+        // 在系统里把日迹设成“限制后台”，或者被系统归到“受限”一档：定时提醒基本收不到
+        val bgOk = Build.VERSION.SDK_INT < 28 || (!(app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager).isBackgroundRestricted &&
+            (Build.VERSION.SDK_INT < 30 || (app.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).appStandbyBucket < UsageStatsManager.STANDBY_BUCKET_RESTRICTED))
         // Android 14 起“全屏通知”可以单独关掉：关了之后锁屏时不会弹出闹钟响铃界面，只剩一条横幅
         val fullScreenOk = Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent()
         // 最近 30 天里闹钟有没有因为系统拒绝而改用保底通知
@@ -48,6 +55,7 @@ object Reliability {
             Item("notif", "通知权限", notifOk, "已允许", "没有允许，或者“生日与提醒”这类通知被关掉了：提醒不会弹出来", "去打开"),
             Item("exact", "准时提醒权限", exactOk, "已允许", "没有允许：提醒和闹钟可能晚几分钟甚至更久才响", "去允许"),
             Item("battery", "不受省电限制", batteryOk, "已允许", "没有允许：手机省电时可能推迟提醒，建议允许", "去允许"),
+            Item("background", "后台运行", bgOk, "没有被限制", "被限制了：App 不在前台时提醒和闹钟可能完全收不到，请在“应用信息 → 耗电”里改成“不限制”", "去设置"),
             Item("fullscreen", "全屏通知（闹钟响铃界面）", fullScreenOk, "已允许", "被关掉了：锁屏时闹钟不会弹出响铃界面，只有一条横幅", "去允许"),
             Item("alarmsvc", "闹钟响铃", fallbackOk, "正常",
                 "$fallbackWhen 那次闹钟系统没让响铃界面启动，已改用通知提醒。建议在“应用信息 → 耗电”里允许后台运行和自启动", "去设置")
@@ -63,6 +71,7 @@ object Reliability {
             "exact" -> if (Build.VERSION.SDK_INT >= 31) Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$pkg")) else null
             "battery" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$pkg"))
             "fullscreen" -> if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$pkg")) else null
+            "background" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             "alarmsvc" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             "vendor" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             else -> null
@@ -92,13 +101,6 @@ object Reliability {
             putExtra("body", "收到这条通知，说明提醒能正常弹出")
         }
         val pi = PendingIntent.getBroadcast(app, TEST_CODE, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val at = System.currentTimeMillis() + TEST_DELAY_SEC * 1000L
-        try {
-            if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-        } catch (e: SecurityException) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-        }
+        Delivery.setExact(app, System.currentTimeMillis() + TEST_DELAY_SEC * 1000L, pi)
     }
 }
