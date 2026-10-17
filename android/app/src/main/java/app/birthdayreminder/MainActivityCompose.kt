@@ -22,8 +22,7 @@ import app.birthdayreminder.ui.common.applyRefreshRate
 import androidx.compose.runtime.SideEffect
 import androidx.core.view.WindowCompat
 import app.birthdayreminder.health.HealthAutoSync
-import app.birthdayreminder.notify.CycleScheduler
-import app.birthdayreminder.notify.MedScheduler
+import app.birthdayreminder.notify.Upkeep
 import app.birthdayreminder.ui.health.FitnessFieldStore
 import android.Manifest
 import android.content.Intent
@@ -111,9 +110,9 @@ class MainActivityCompose : FragmentActivity() {
         // 有些系统切到别的应用再回来会重置刷新率，回来时再设一次
         applyRefreshRate(this)
         if (PrivacySession.onForeground()) privacyKicked = true
-        // 用药提醒：每次回到 App 都重新排一次（接下来 48 小时），也顺便检查过期药品。
+        // 每次回到 App 都把所有提醒（生日/提醒、用药、生理期、闹钟）按最新数据重排一遍，顺便检查过期药品、排好每天凌晨的检修。
         // 放在 onStart 而不是 onCreate：App 一直留在后台时 onCreate 不会再走
-        MedScheduler.reschedule(this)
+        Upkeep.refresh(this)
         // 自动备份：到时间了就在后台备份一次（没打开自动备份、或者还没到时间，什么都不做）
         lifecycleScope.launch(Dispatchers.IO) { try { AutoBackup.runIfDue(this@MainActivityCompose) } catch (e: Exception) { } }
     }
@@ -140,7 +139,6 @@ class MainActivityCompose : FragmentActivity() {
         super.onCreate(savedInstanceState)
         // 健身项目设置（顺序、隐藏、自定义项目）：其它地方用到项目列表之前先载入
         FitnessFieldStore.load(this)
-        CycleScheduler.reschedule(this)
         // Health Connect 自动同步：按开关排好后台任务
         HealthAutoSync.schedule(this)
         // 云盘备份：按设置排好定时上传
@@ -156,7 +154,6 @@ class MainActivityCompose : FragmentActivity() {
         if (Build.VERSION.SDK_INT >= 33 && !NotificationHelper.hasPermission(this)) {
             notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // 每次打开 App 都按最新数据重排一遍通知，防止系统清掉定时
         // 数据一有变化就自动刷新桌面小组件（首次收集时也会刷新一次）
         WidgetUpdater.keepInSync(lifecycleScope, this)
         lifecycleScope.launch(Dispatchers.IO) {
@@ -164,10 +161,10 @@ class MainActivityCompose : FragmentActivity() {
             LegacyNotifications.cancelAll(this@MainActivityCompose)
         }
         lifecycleScope.launch {
-            ReminderScheduler.reschedule(this@MainActivityCompose)
-            AlarmEngine.sync(this@MainActivityCompose)
-            // 顺手联网刷新今年和明年的节假日；有更新的话，工作日闹钟也要跟着重新算
+            // 提醒和闹钟的重排在 onStart 里（Upkeep.refresh）。
+            // 这里顺手联网刷新今年和明年的节假日；有更新的话，节假日提醒和工作日闹钟也要跟着重新算
             if (SettingsStore.get(this@MainActivityCompose).autoHoliday && HolidayRepository.refreshOpportunistic(this@MainActivityCompose)) {
+                ReminderScheduler.reschedule(this@MainActivityCompose)
                 AlarmEngine.sync(this@MainActivityCompose)
             }
         }

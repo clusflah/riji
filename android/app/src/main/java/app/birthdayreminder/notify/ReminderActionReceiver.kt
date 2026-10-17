@@ -1,12 +1,9 @@
 package app.birthdayreminder.notify
 
-import android.app.AlarmManager
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import app.birthdayreminder.WidgetUpdater
 import app.birthdayreminder.data.AppDatabase
 import app.birthdayreminder.domain.ReminderActions
@@ -23,7 +20,6 @@ class ReminderActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_DONE = "app.birthdayreminder.REMINDER_DONE"
         const val ACTION_SNOOZE = "app.birthdayreminder.REMINDER_SNOOZE"
-        private const val SNOOZE_BASE = 9000
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -59,16 +55,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
             putExtra("rid", src.getStringExtra("rid"))
             putExtra("occ", src.getStringExtra("occ"))
         }
-        // 请求码和正常排程(7000 起)分开，重排时不会被误取消
-        val pi = PendingIntent.getBroadcast(app, SNOOZE_BASE + (notifId % 1000), i,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-        val at = ReminderActions.snoozeAt(System.currentTimeMillis())
-        try {
-            if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-        } catch (e: SecurityException) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-        }
+        // 请求码就用通知编号（40000 起），和正常排程(7000 起)分开，重排时不会被误取消；记下来，重启手机后也会重新排上
+        Delivery.snooze(app, notifId, i, ReminderActions.snoozeAt(System.currentTimeMillis()))
     }
 }

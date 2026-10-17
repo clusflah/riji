@@ -16,12 +16,14 @@ import app.birthdayreminder.MainActivityCompose
 import app.birthdayreminder.data.AppDatabase
 import app.birthdayreminder.data.MedLog
 import app.birthdayreminder.data.Medication
+import app.birthdayreminder.domain.DeliveryPlan
 import app.birthdayreminder.domain.MedLogic
 import app.birthdayreminder.domain.MedicalLogic
 import app.birthdayreminder.domain.Modules
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -176,6 +178,7 @@ object MedScheduler {
     private const val PREF = "med_sched"
     private const val FU_BASE = 35000
     private const val FU_MAX = 40
+    const val GROUP = "med"
 
     /** 通知编号按这一次服药固定下来：重排时顺序会变，用序号的话后面的提醒会顶掉还没处理的通知 */
     private fun notifId(doseKey: String) = BASE + 1000 + Math.floorMod(doseKey.hashCode(), 1000)   // 31000–31999，不和低库存（32000 起）撞
@@ -185,7 +188,9 @@ object MedScheduler {
         CoroutineScope(Dispatchers.IO).launch { try { rescheduleNow(app) } catch (e: Exception) { } }
     }
 
-    suspend fun rescheduleNow(app: Context) {
+    suspend fun rescheduleNow(app: Context) = Delivery.lock.withLock { rescheduleLocked(app) }
+
+    private suspend fun rescheduleLocked(app: Context) {
         val dao = AppDatabase.get(app).medDao()
         // 用药就医功能关掉了：取消所有用药和复诊提醒，不再排新的
         val on = Prefs.moduleOn(app, Modules.MED)
@@ -200,22 +205,23 @@ object MedScheduler {
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         }
         val zone = ZoneId.systemDefault()
-        val ups = MedLogic.upcoming(meds, logs, LocalDateTime.now(), zone, max = MAX)
+        // 往前多看 6 小时：到点时被推迟、又赶上重排的那一次，还没记录就补发（见 DeliveryPlan）
+        val ups = MedLogic.upcoming(meds, logs, LocalDateTime.now().minusHours(6), zone, hours = 54, max = MAX)
+        val byKey = ups.associateBy { it.dose.key }
+        val slots = DeliveryPlan.plan(ups.map { it.dose.key to it.at }, Delivery.promised(app, GROUP), System.currentTimeMillis()).take(MAX)
         val byId = meds.associateBy { it.id }
-        ups.forEachIndexed { i, u ->
+        slots.forEachIndexed { i, slot ->
+            val u = byKey.getValue(slot.key)
             val m = byId[u.dose.medId] ?: return@forEachIndexed
             val intent = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW)
                 .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", MedNotify.shownName(m)).putExtra("dosage", if (m.isPrivate) "" else m.dosage)
                 .putExtra("date", u.dose.date.toString()).putExtra("time", u.dose.time).putExtra("amount", u.dose.amount).putExtra("unit", m.unit)
+                .putExtra(Delivery.EXTRA_KEY, slot.key)
             val pi = PendingIntent.getBroadcast(app, BASE + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-            try {
-                if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, u.at, pi)
-                else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, u.at, pi)
-            } catch (e: SecurityException) {
-                am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, u.at, pi)
-            }
+            Delivery.setExact(app, slot.fireAt, pi)
         }
-        sp.edit().putInt("count", ups.size).apply()
+        sp.edit().putInt("count", slots.size).apply()
+        Delivery.savePromised(app, GROUP, slots.map { it.key })
 
         // 复诊：前一天 20:00、当天 09:00 各提醒一次（复诊不多，提前排好，不受 48 小时限制）
         val oldFu = sp.getInt("fu_count", FU_MAX)
@@ -237,10 +243,7 @@ object MedScheduler {
                     .putExtra("nid", FU_BASE + 500 + n).putExtra("title", title).putExtra("text", text)
                     .putExtra("medId", "-").putExtra("date", f.date.toString()).putExtra("time", "09:00")
                 val pi = PendingIntent.getBroadcast(app, FU_BASE + n, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                try {
-                    if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
-                    else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi)
-                } catch (e: SecurityException) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, ms, pi) }
+                Delivery.setExact(app, ms, pi)
                 n++
             }
         }
@@ -286,24 +289,22 @@ class MedReceiver : BroadcastReceiver() {
         val unit = intent.getStringExtra("unit") ?: ""
         when (intent.action) {
             ACTION_SHOW -> {
-                MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
                 // 以前只在冷启动 App、点通知按钮时才排后面 48 小时的提醒：App 一直开在后台、通知又没点，
                 // 两天后就不再提醒了。现在每响一次就接着往后排
                 val pending = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {
-                    try { MedScheduler.rescheduleNow(app) } catch (e: Exception) { } finally { pending.finish() }
+                    try {
+                        // 补发的和原来那次都到了，只弹一次
+                        if (Delivery.claim(app, MedScheduler.GROUP, intent)) MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
+                        MedScheduler.rescheduleNow(app)
+                    } catch (e: Exception) { } finally { pending.finish() }
                 }
             }
             ACTION_SNOOZE -> {
                 app.getSystemService(NotificationManager::class.java).cancel(nid)
                 val i = Intent(app, MedReceiver::class.java).setAction(ACTION_SHOW).putExtras(intent)
-                val pi = PendingIntent.getBroadcast(app, SNOOZE_BASE + (nid % 1000), i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-                val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
-                val at = System.currentTimeMillis() + 10 * 60_000L
-                try {
-                    if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-                    else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
-                } catch (e: SecurityException) { am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi) }
+                // 记下来，重启手机后也会重新排上
+                Delivery.snooze(app, SNOOZE_BASE + (nid % 1000), i, System.currentTimeMillis() + 10 * 60_000L)
             }
             ACTION_TAKE, ACTION_SKIP -> {
                 app.getSystemService(NotificationManager::class.java).cancel(nid)

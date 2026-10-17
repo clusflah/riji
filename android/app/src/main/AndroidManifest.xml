@@ -129,18 +129,26 @@
         <receiver android:name=".notify.ReminderActionReceiver" android:exported="false" />
         <!-- 用药提醒：到点通知、通知上的“已服用 / 跳过 / 10 分钟后” -->
         <receiver android:name=".notify.MedReceiver" android:exported="false" />
+        <!-- 开机、升级、改时间之后，以及每天凌晨（App 自己排的检修），把所有提醒重新排一遍。
+             QUICKBOOT_POWERON：部分国产手机“快速开机”不发 BOOT_COMPLETED；
+             准时权限状态变化：安卓 12 上用户刚允许了准时提醒，马上把提醒改成准时排 -->
         <receiver android:name=".notify.ReminderBootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
 
         <receiver android:name=".BootReceiver" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
