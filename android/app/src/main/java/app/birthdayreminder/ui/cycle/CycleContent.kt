@@ -109,8 +109,9 @@ fun rememberCycleViewModel(profile: String): CycleViewModel {
     })
 }
 
+/** selected：首页月历上选中的那天（从首页打开时传进来），“今天”页会多一个改这一天的按钮 */
 @Composable
-fun CycleContent(vm: CycleViewModel = viewModel()) {
+fun CycleContent(vm: CycleViewModel = viewModel(), selected: LocalDate? = null) {
     var sub by rememberSaveable { mutableIntStateOf(0) }
     var now by remember { mutableStateOf(LocalDateTime.now()) }
     LaunchedEffect(Unit) { while (true) { delay(60_000); now = LocalDateTime.now() } }
@@ -121,7 +122,7 @@ fun CycleContent(vm: CycleViewModel = viewModel()) {
         // 子页可以左右滑动切换；滑到第一页 / 最后一页再滑，就切换到“全部”页的上一个 / 下一个项目
         SwipeTabs(SUB, sub, { sub = it }, modifier = Modifier.fillMaxSize()) { page ->
             when (page) {
-                0 -> TodayPage(vm, now, settingsTick, onEdit = { editDate = it }, onSettings = { showSettings = true }, onPillTab = { sub = 3 })
+                0 -> TodayPage(vm, now, settingsTick, selected, onEdit = { editDate = it }, onSettings = { showSettings = true }, onPillTab = { sub = 3 })
                 1 -> CalendarPage(vm, now.toLocalDate(), settingsTick, onEdit = { editDate = it })
                 2 -> TrendsPage(vm, now.toLocalDate(), settingsTick)
                 else -> PillPage(vm, now)
@@ -145,7 +146,7 @@ private fun rememberPrediction(profile: String, days: List<CycleDay>, today: Loc
 
 // ---------------------------------------------------------------- 今天
 @Composable
-private fun TodayPage(vm: CycleViewModel, now: LocalDateTime, tick: Int, onEdit: (LocalDate) -> Unit, onSettings: () -> Unit, onPillTab: () -> Unit) {
+private fun TodayPage(vm: CycleViewModel, now: LocalDateTime, tick: Int, selected: LocalDate?, onEdit: (LocalDate) -> Unit, onSettings: () -> Unit, onPillTab: () -> Unit) {
     val ctx = LocalContext.current
     val profile = vm.profile
     val days by vm.days.collectAsState()
@@ -172,6 +173,17 @@ private fun TodayPage(vm: CycleViewModel, now: LocalDateTime, tick: Int, onEdit:
                         OutlinedButton(onClick = { onEdit(today) }) { Text(if (todayRec == null) "记录今天" else "修改今天") }
                     }
                     todayRec?.let { Text("今天：" + CycleLogic.daySummary(it), style = MaterialTheme.typography.bodySmall) }
+                    // 月历上选了别的日子：以前这里只有“修改今天”，选着 15 号点它改的却是今天（16 号），
+                    // 看起来就像改 15 号、16 号跟着变。现在单独给选中的那天一个按钮，写清楚改的是哪天
+                    if (selected != null && selected != today && !selected.isAfter(today)) {
+                        val selRec = days.firstOrNull { it.date == selected.toString() }
+                        val md = "${selected.monthValue}月${selected.dayOfMonth}日"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("$md：" + (selRec?.let { CycleLogic.daySummary(it) }?.ifBlank { null } ?: "没有记录"),
+                                style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { onEdit(selected) }) { Text(if (selRec == null) "记录$md" else "修改$md") }
+                        }
+                    }
                     TextButton(onClick = onSettings) { Text(if (profile == CycleProfiles.MAIN) "⚙ 生理期设置（避孕模式、提醒、默认周期）" else "⚙ 生理期设置（避孕模式、默认周期）") }
                 }
             }

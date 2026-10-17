@@ -322,7 +322,8 @@ fun CalendarScreen(
                         tab = tabId,
                         onEditDiary = onEditDiary, onEditReminder = onEditReminder, onEditFitness = { date -> onOpenFitnessDate(date) },
                         onEditAlarm = onEditAlarm, onEditAllergy = { date -> onOpenAllergyDate(date) }, onEditMed = onEditMed,
-                        onEditRecord = onEditRecord, onEditPhrase = onEditPhrase, onEditBirthday = onEditBirthday
+                        onEditRecord = onEditRecord, onEditPhrase = onEditPhrase, onEditBirthday = onEditBirthday,
+                        selectedDate = ui.selected
                     )
                 } else {
                     DayPanel(

@@ -21,12 +21,15 @@ object CycleLogic {
 
     /**
      * 把 start 标成经期时，后面要自动标成经期的日子：只在这是新一次经期的第一天（前两天都不是经期）时才补，
-     * 补到一共 periodLength 天（含 start）。已经记过的日子由调用方决定怎么处理。
+     * 补到一共 periodLength 天（含 start）。
+     * 往后补到第一天已经选过流量（点滴或经期）的日子就停：那之后是用户自己记的。以前会跳过它接着往后补，
+     * 把这天改掉再改回来，后面被取消掉的日子又会被补回经期——改一天，后面几天跟着变。
      */
     fun autoFillDates(days: List<CycleDay>, start: LocalDate, periodLength: Int): List<LocalDate> {
         val period = days.filter { isPeriod(it.flow) }.map { it.date }.toSet()
         if (start.minusDays(1).toString() in period || start.minusDays(2).toString() in period) return emptyList()
-        return (1 until periodLength.coerceIn(1, 12)).map { start.plusDays(it.toLong()) }
+        val chosen = days.filter { it.flow > 0 }.map { it.date }.toSet()
+        return (1 until periodLength.coerceIn(1, 12)).map { start.plusDays(it.toLong()) }.takeWhile { it.toString() !in chosen }
     }
 
     /** “经期到这天结束”：这天之后紧接着的经期日子（连续的），要取消掉 */
