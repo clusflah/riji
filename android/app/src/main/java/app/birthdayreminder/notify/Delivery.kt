@@ -19,7 +19,10 @@ import kotlinx.coroutines.sync.withLock
 object Delivery {
     const val EXTRA_KEY = "dkey"
     const val EXTRA_SNOOZE = "dsnooze"
-    /** 原定时间：到点弹出时和现在比一比，晚了很多就记下来，在“提醒检查”里提示 */
+    /**
+     * 排给系统的触发时间（不是提醒的原定时间）：弹出时和现在比一比，晚了很多就是系统把定时压住了，记下来在“提醒检查”里提示。
+     * 用原定时间的话，关机一晚、开机后补发的提醒也会被算成“晚了”，冤枉了系统
+     */
     const val EXTRA_AT = "dat"
     private const val PREF = "delivery"
     private const val SHOW_CODE = 6970
@@ -80,6 +83,11 @@ object Delivery {
         val sp = prefs(ctx)
         val at = sp.getLong("lateAt", 0L)
         return if (at > 0) at to sp.getLong("lateMin", 0L) else null
+    }
+
+    /** 打开“闹钟级提醒”后清掉旧的晚弹记录：不然这条提示要挂满 30 天，像是没改好 */
+    fun clearLate(ctx: Context) {
+        prefs(ctx).edit().remove("lateAt").remove("lateMin").apply()
     }
 
     /** 稍后提醒：按 code 排上，同时记下来，手机重启后 rearmSnoozes 会重新排 */

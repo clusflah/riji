@@ -26,7 +26,7 @@ object ReminderScheduler {
     /** 通知编号按这一条提醒固定（40000–49999）：以前用排序序号，重排后后一条会顶掉还没处理的前一条通知 */
     fun notifId(key: String) = DeliveryPlan.notifId(key, 40000, 10000)
 
-    private fun pendingIntent(ctx: Context, code: Int, item: ScheduleBuilder.Item?, create: Boolean): PendingIntent? {
+    private fun pendingIntent(ctx: Context, code: Int, item: ScheduleBuilder.Item?, create: Boolean, fireAt: Long = 0L): PendingIntent? {
         val intent = Intent(ctx, NotifyReceiver::class.java).apply {
             action = ACTION
             if (item != null) {
@@ -35,7 +35,7 @@ object ReminderScheduler {
                 putExtra("body", item.body)
                 putExtra(NotifyReceiver.EXTRA_GROUP, GROUP)
                 putExtra(Delivery.EXTRA_KEY, item.key)
-                putExtra(Delivery.EXTRA_AT, item.at)
+                putExtra(Delivery.EXTRA_AT, fireAt)
                 // 提醒事项才有：通知上的“完成 / 稍后提醒”按钮要知道是哪条、哪一天
                 item.reminderId?.let { putExtra("rid", it) }
                 item.occurrence?.let { putExtra("occ", it) }
@@ -76,7 +76,7 @@ object ReminderScheduler {
 
         slots.forEachIndexed { i, slot ->
             val item = byKey[slot.key] ?: return@forEachIndexed
-            val pi = pendingIntent(app, BASE_CODE + i, item, true) ?: return@forEachIndexed
+            val pi = pendingIntent(app, BASE_CODE + i, item, true, slot.fireAt) ?:return@forEachIndexed
             Delivery.setExact(app, slot.fireAt, pi)
         }
         Delivery.savePromised(app, GROUP, slots.map { it.key })

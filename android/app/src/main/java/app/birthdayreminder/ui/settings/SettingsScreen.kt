@@ -84,6 +84,7 @@ import app.birthdayreminder.data.HolidayRepository
 import app.birthdayreminder.domain.AppSettings
 import app.birthdayreminder.domain.BackupCodec
 import app.birthdayreminder.domain.BackupData
+import app.birthdayreminder.notify.Delivery
 import app.birthdayreminder.notify.NotificationHelper
 import app.birthdayreminder.notify.Prefs
 import app.birthdayreminder.notify.ReminderScheduler
@@ -283,6 +284,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
                 SwitchRow("闹钟级提醒", "提醒和吃药按闹钟的方式定时，国产手机上也能准时弹出；状态栏会有闹钟图标，锁屏的“下一个闹钟”可能显示提醒的时间", s.strongAlarm) { on ->
                     change { it.copy(strongAlarm = on) }
+                    if (on) { Delivery.clearLate(ctx); checkTick++ }      // 旧的晚弹记录作废，上面的检查列表跟着刷新
                     Upkeep.refresh(ctx)      // 所有提醒按新方式重新定时
                 }
                 Text(Reliability.VENDOR_TIP, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
