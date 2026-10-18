@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.7.4**（更新记录见 [CHANGELOG.md](CHANGELOG.md)）
+**版本 1.7.5**（更新记录见 [CHANGELOG.md](CHANGELOG.md)）
 
 日迹是一个以日历为中心的安卓记录应用：农历、节假日和调休一眼看清，生日、提醒、闹钟、日记、学习、健身、用药、生理期都记在同一个地方，按日期串成每天的时间轴。
 不用注册登录，数据只存在手机里（以及你自己设置的云盘里）。支持 Android 7.0 及以上。
