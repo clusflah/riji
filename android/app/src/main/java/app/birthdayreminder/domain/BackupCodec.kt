@@ -31,7 +31,8 @@ data class BackupSettings(
     val weekStart: Int? = null,
     val showLunar: Boolean? = null,
     val holidayAlert: Boolean? = null,
-    val theme: String? = null
+    val theme: String? = null,
+    val strongAlarm: Boolean? = null      // 旧备份里没有，恢复时保持现在的设置
 )
 
 /** alarms / diary / phrases 为 null 表示备份文件里没有这一项，恢复时不动现有数据（和旧版一致） */
@@ -163,7 +164,8 @@ object BackupCodec {
             "settings" to mapOf(
                 "notify" to settings.notify, "dailyTime" to settings.dailyTime, "defAdvance" to settings.defAdvance,
                 "weekStart" to settings.weekStart, "showLunar" to settings.showLunar, "theme" to settings.theme,
-                "holidayAlert" to settings.holidayAlert, "autoHoliday" to settings.autoHoliday
+                "holidayAlert" to settings.holidayAlert, "autoHoliday" to settings.autoHoliday,
+                "strongAlarm" to settings.strongAlarm
             )
         )
         return MiniJson.write(mapOf("app" to APP_ID, "version" to 1, "exportedAt" to exportedAt, "data" to data))
@@ -414,7 +416,8 @@ object BackupCodec {
             weekStart = int(st["weekStart"])?.takeIf { it == 0 || it == 1 },
             showLunar = st["showLunar"] as? Boolean,
             holidayAlert = st["holidayAlert"] as? Boolean,
-            theme = (st["theme"] as? String)?.takeIf { it in listOf("auto", "light", "dark") }
+            theme = (st["theme"] as? String)?.takeIf { it in listOf("auto", "light", "dark") },
+            strongAlarm = st["strongAlarm"] as? Boolean
         )
         return BackupData(birthdays, reminders, alarms, diary, phrases, settings, fitness = fitness, fitnessFields = fitnessFields, allergy = allergy,
             medications = medications, medLogs = medLogs, medicalRecords = medicalRecords,
@@ -451,7 +454,8 @@ object BackupCodec {
         weekStart = s.weekStart ?: cur.weekStart,
         showLunar = s.showLunar ?: cur.showLunar,
         holidayAlert = s.holidayAlert ?: cur.holidayAlert,
-        theme = s.theme ?: cur.theme
+        theme = s.theme ?: cur.theme,
+        strongAlarm = s.strongAlarm ?: cur.strongAlarm
     )
 
     /** 备份里的铃声文件名 -> alarm_sounds/ 下的相对路径；带路径、以点开头、有奇怪字符的都不认 */

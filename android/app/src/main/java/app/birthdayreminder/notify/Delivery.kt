@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import app.birthdayreminder.MainActivityCompose
 import app.birthdayreminder.domain.DeliveryPlan
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -18,7 +19,12 @@ import kotlinx.coroutines.sync.withLock
 object Delivery {
     const val EXTRA_KEY = "dkey"
     const val EXTRA_SNOOZE = "dsnooze"
+    /** 原定时间：到点弹出时和现在比一比，晚了很多就记下来，在“提醒检查”里提示 */
+    const val EXTRA_AT = "dat"
     private const val PREF = "delivery"
+    private const val SHOW_CODE = 6970
+    /** 晚了这么久才弹出，就算“被系统耽误了” */
+    private const val LATE_MS = 10 * 60_000L
 
     /** 重排和“弹出前划掉”互斥：不然刚弹出的一条会被同时在跑的重排当成漏掉的，再补发一次 */
     val lock = Mutex()
@@ -27,8 +33,15 @@ object Delivery {
 
     fun setExact(ctx: Context, at: Long, pi: PendingIntent) {
         val am = ctx.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
         try {
-            if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
+            // 闹钟级：OPPO 等国产系统会把后台 App 的普通定时压到 App 被打开才发，闹钟（setAlarmClock）不会被压
+            if (exact && SettingsStore.get(ctx).strongAlarm) {
+                val show = PendingIntent.getActivity(ctx, SHOW_CODE,
+                    Intent(ctx, MainActivityCompose::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                am.setAlarmClock(AlarmManager.AlarmClockInfo(at, show), pi)
+            } else if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
         } catch (e: SecurityException) {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, at, pi)
@@ -50,6 +63,9 @@ object Delivery {
      */
     suspend fun claim(ctx: Context, group: String, intent: Intent): Boolean = lock.withLock {
         val sp = prefs(ctx)
+        val at = intent.getLongExtra(EXTRA_AT, 0L)
+        val now = System.currentTimeMillis()
+        if (at > 0 && now - at > LATE_MS) sp.edit().putLong("lateAt", at).putLong("lateMin", (now - at) / 60_000).apply()
         val snz = intent.getIntExtra(EXTRA_SNOOZE, 0)
         if (snz != 0) sp.edit().remove("s_$snz").commit()
         val key = intent.getStringExtra(EXTRA_KEY) ?: return@withLock true
@@ -59,10 +75,18 @@ object Delivery {
         true
     }
 
+    /** 最近一次晚弹出的提醒：（原定时间, 晚了几分钟），没有记录返回 null */
+    fun lastLate(ctx: Context): Pair<Long, Long>? {
+        val sp = prefs(ctx)
+        val at = sp.getLong("lateAt", 0L)
+        return if (at > 0) at to sp.getLong("lateMin", 0L) else null
+    }
+
     /** 稍后提醒：按 code 排上，同时记下来，手机重启后 rearmSnoozes 会重新排 */
     fun snooze(ctx: Context, code: Int, intent: Intent, at: Long) {
         val app = ctx.applicationContext
         intent.removeExtra(EXTRA_KEY)          // 稍后提醒不受“答应过”的名单管，到点一定弹
+        intent.removeExtra(EXTRA_AT)           // 也不算“晚了”
         intent.putExtra(EXTRA_SNOOZE, code)
         val pi = PendingIntent.getBroadcast(app, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         setExact(app, at, pi)

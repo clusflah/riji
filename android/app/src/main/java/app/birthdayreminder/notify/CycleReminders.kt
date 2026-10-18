@@ -50,13 +50,14 @@ object CycleScheduler {
         val zone = ZoneId.systemDefault()
         val byKey = alerts.associateBy { "${it.date}|${it.title}" }
         val entries = byKey.map { (k, a) -> k to a.date.atTime(9, 0).atZone(zone).toInstant().toEpochMilli() }
+        val atOf = entries.toMap()
         // 今天 9 点那条被推迟、又赶上重排的，照样补发（见 DeliveryPlan）
         val slots = DeliveryPlan.plan(entries, Delivery.promised(app, GROUP), System.currentTimeMillis()).take(MAX)
         slots.forEachIndexed { n, slot ->
             val a = byKey.getValue(slot.key)
             val i = Intent(app, NotifyReceiver::class.java).setAction(ACTION)
                 .putExtra("id", DeliveryPlan.notifId(slot.key, BASE + 100, 100)).putExtra("title", a.title).putExtra("body", a.body)
-                .putExtra(NotifyReceiver.EXTRA_GROUP, GROUP).putExtra(Delivery.EXTRA_KEY, slot.key)
+                .putExtra(NotifyReceiver.EXTRA_GROUP, GROUP).putExtra(Delivery.EXTRA_KEY, slot.key).putExtra(Delivery.EXTRA_AT, atOf.getValue(slot.key))
             val pi = PendingIntent.getBroadcast(app, BASE + n, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             Delivery.setExact(app, slot.fireAt, pi)
         }

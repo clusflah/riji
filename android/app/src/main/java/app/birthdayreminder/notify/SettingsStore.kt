@@ -31,6 +31,7 @@ object SettingsStore {
             showFestival = p.getBoolean("showFestival", d.showFestival),
             theme = p.getString("theme", d.theme)?.takeIf { it in listOf("auto", "light", "dark") } ?: d.theme,
             holidayAlert = p.getBoolean("holidayAlert", d.holidayAlert),
+            strongAlarm = p.getBoolean("strongAlarm", d.strongAlarm),
             autoHoliday = p.getBoolean("autoHoliday", d.autoHoliday),
             lastBackup = p.getLong("lastBackup", 0L),
             autoBackup = p.getString("autoBackup", "off")?.takeIf { it in listOf("off", "daily", "weekly") } ?: "off",
@@ -60,6 +61,7 @@ object SettingsStore {
             .putBoolean("showFestival", s.showFestival)
             .putString("theme", s.theme)
             .putBoolean("holidayAlert", s.holidayAlert)
+            .putBoolean("strongAlarm", s.strongAlarm)
             .putBoolean("autoHoliday", s.autoHoliday)
             .putLong("lastBackup", s.lastBackup)
             .putString("autoBackup", s.autoBackup)

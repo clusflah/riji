@@ -216,7 +216,7 @@ object MedScheduler {
             val intent = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW)
                 .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", MedNotify.shownName(m)).putExtra("dosage", if (m.isPrivate) "" else m.dosage)
                 .putExtra("date", u.dose.date.toString()).putExtra("time", u.dose.time).putExtra("amount", u.dose.amount).putExtra("unit", m.unit)
-                .putExtra(Delivery.EXTRA_KEY, slot.key)
+                .putExtra(Delivery.EXTRA_KEY, slot.key).putExtra(Delivery.EXTRA_AT, u.at)
             val pi = PendingIntent.getBroadcast(app, BASE + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             Delivery.setExact(app, slot.fireAt, pi)
         }

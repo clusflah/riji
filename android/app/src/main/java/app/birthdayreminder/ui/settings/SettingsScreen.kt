@@ -88,6 +88,7 @@ import app.birthdayreminder.notify.NotificationHelper
 import app.birthdayreminder.notify.Prefs
 import app.birthdayreminder.notify.ReminderScheduler
 import app.birthdayreminder.notify.SettingsStore
+import app.birthdayreminder.notify.Upkeep
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
@@ -279,6 +280,10 @@ fun SettingsScreen(onBack: () -> Unit) {
                         }
                         if (!c.ok && c.fixLabel.isNotEmpty()) TextButton(onClick = { openFix(c.key) }) { Text(c.fixLabel) }
                     }
+                }
+                SwitchRow("闹钟级提醒", "提醒和吃药按闹钟的方式定时，国产手机上也能准时弹出；状态栏会有闹钟图标，锁屏的“下一个闹钟”可能显示提醒的时间", s.strongAlarm) { on ->
+                    change { it.copy(strongAlarm = on) }
+                    Upkeep.refresh(ctx)      // 所有提醒按新方式重新定时
                 }
                 Text(Reliability.VENDOR_TIP, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {

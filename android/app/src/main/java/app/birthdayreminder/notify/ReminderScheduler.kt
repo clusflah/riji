@@ -35,6 +35,7 @@ object ReminderScheduler {
                 putExtra("body", item.body)
                 putExtra(NotifyReceiver.EXTRA_GROUP, GROUP)
                 putExtra(Delivery.EXTRA_KEY, item.key)
+                putExtra(Delivery.EXTRA_AT, item.at)
                 // 提醒事项才有：通知上的“完成 / 稍后提醒”按钮要知道是哪条、哪一天
                 item.reminderId?.let { putExtra("rid", it) }
                 item.occurrence?.let { putExtra("occ", it) }
