@@ -79,6 +79,12 @@ class MedViewModel(app: Application) : AndroidViewModel(app) {
     fun skip(d: MedLogic.Dose) = viewModelScope.launch { MedActions.skip(getApplication(), d.medId, d.date.toString(), d.time, d.amount) }
     fun undo(l: MedLog) = viewModelScope.launch { MedActions.undo(getApplication(), l) }
 
+    /** “记录”页里改以前的一次：改成已服用 / 跳过（库存跟着扣或加回来） */
+    fun changeRecord(r: MedLogic.HistoryRow, taken: Boolean) = viewModelScope.launch {
+        if (taken) MedActions.take(getApplication(), r.medId, r.date, r.time, r.amount)
+        else MedActions.skip(getApplication(), r.medId, r.date, r.time, r.amount)
+    }
+
     /** 临时加一次：记在今天、现在的时间 */
     fun extra(m: Medication, amount: Double) = viewModelScope.launch {
         val now = LocalTime.now()

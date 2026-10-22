@@ -284,6 +284,7 @@ private fun HistoryPage(vm: MedViewModel, now: LocalDateTime, onEditRecord: (Str
     val timeline = remember(rows, records, today) { MedicalLogic.timeline(rows, records, today.minusDays(29), today) }
     val w7 = remember(meds, logs, now) { MedLogic.adherence(meds, logs, today.minusDays(6), today, now) }
     val w30 = remember(meds, logs, now) { MedLogic.adherence(meds, logs, today.minusDays(29), today, now) }
+    var editing by remember { mutableStateOf<MedLogic.HistoryRow?>(null) }
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) scope.launch {
             val err = vm.exportCsv(uri)
@@ -299,6 +300,7 @@ private fun HistoryPage(vm: MedViewModel, now: LocalDateTime, onEditRecord: (Str
                     Text("30 天里应服 ${w30.due} 次：已服用 ${w30.taken}、跳过 ${w30.skipped}、漏服 ${w30.missed}",
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     TextButton(onClick = { exporter.launch("用药就医记录-${today}.csv") }) { Text("导出最近 90 天（CSV，含就医记录，可给医生看）") }
+                    Text("记错了？点下面的服药记录可以修改", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -326,7 +328,9 @@ private fun HistoryPage(vm: MedViewModel, now: LocalDateTime, onEditRecord: (Str
                     }
                     is MedicalLogic.Entry.Dose -> {
                         val r = e.row
-                        Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // 点一下可以改：选错了“已服用 / 跳过”、忘了记的漏服都能在这里补救
+                        Row(modifier = Modifier.fillMaxWidth().clickable { editing = r }.padding(horizontal = 16.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
                             Text(r.time, modifier = Modifier.width(56.dp))
                             Text(r.medName + " " + MedLogic.fmt(r.amount) + r.unit + (if (r.extra) "（临时）" else ""), modifier = Modifier.weight(1f))
                             Text(MedLogic.statusText(r.status), color = statusColor(r.status))
@@ -336,4 +340,60 @@ private fun HistoryPage(vm: MedViewModel, now: LocalDateTime, onEditRecord: (Str
             }
         }
     }
+    editing?.let { r ->
+        // 药品已经删了的，只能删掉这条记录（没法再按药品扣库存）
+        val medExists = meds.any { it.id == r.medId } || vm.privateMeds.value.any { it.id == r.medId }
+        EditDoseDialog(
+            r, canChange = medExists && !r.extra,
+            onDismiss = { editing = null },
+            onTaken = { vm.changeRecord(r, taken = true); editing = null },
+            onSkipped = { vm.changeRecord(r, taken = false); editing = null },
+            onClear = { r.log?.let { vm.undo(it) }; editing = null },
+        )
+    }
+}
+
+/** 改一次服药记录：已服用 ↔ 跳过，或者清除（变回没记过，过了时间就算漏服）。 */
+@Composable
+private fun EditDoseDialog(
+    r: MedLogic.HistoryRow,
+    canChange: Boolean,
+    onDismiss: () -> Unit,
+    onTaken: () -> Unit,
+    onSkipped: () -> Unit,
+    onClear: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("修改服药记录") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("${r.date} ${r.time}　${r.medName} ${MedLogic.fmt(r.amount)}${r.unit}" + (if (r.extra) "（临时）" else ""))
+                Text("现在是：" + MedLogic.statusText(r.status), color = statusColor(r.status))
+                if (canChange && r.status != Status.TAKEN) {
+                    OutlinedButton(onClick = onTaken, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (r.status == Status.MISSED) "补记为已服用" else "改为已服用")
+                    }
+                }
+                if (canChange && r.status != Status.SKIPPED) {
+                    OutlinedButton(onClick = onSkipped, modifier = Modifier.fillMaxWidth()) { Text("改为跳过") }
+                }
+                if (r.log != null) {
+                    OutlinedButton(onClick = onClear, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (r.extra) "删除这条记录" else "清除记录（算作没吃）")
+                    }
+                }
+                Text(
+                    when {
+                        r.extra -> "临时加的这次只能删除；删除后会把扣掉的库存加回来"
+                        !canChange -> "这个药品已经删除，只能清除记录"
+                        else -> "改成已服用会扣库存，改成跳过或清除会把扣掉的库存加回来"
+                    },
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
 }

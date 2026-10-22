@@ -167,8 +167,10 @@ object MedLogic {
         return Adherence(due, taken, skipped, missed)
     }
 
+    /** medId、log 给“记录”页改状态用：log 为空表示这次没记过（漏服） */
     data class HistoryRow(val date: String, val time: String, val medName: String, val amount: Double, val unit: String,
-                          val status: Status, val actionAt: Long?, val extra: Boolean)
+                          val status: Status, val actionAt: Long?, val extra: Boolean,
+                          val medId: String = "", val log: MedLog? = null)
 
     /** 历史记录：每一次（含漏服的、临时加的），新的在前；还没到时间的不算 */
     fun history(meds: List<Medication>, logs: List<MedLog>, from: LocalDate, to: LocalDate, now: LocalDateTime): List<HistoryRow> {
@@ -178,7 +180,8 @@ object MedLogic {
         while (!d.isAfter(to)) {
             for (s in day(meds, logs, d, now)) {
                 if (s.status == Status.UPCOMING || s.status == Status.DUE) continue
-                out += HistoryRow(d.toString(), s.dose.time, s.dose.medName, s.dose.amount, unit[s.dose.medId].orEmpty(), s.status, s.log?.actionAt, false)
+                out += HistoryRow(d.toString(), s.dose.time, s.dose.medName, s.dose.amount, unit[s.dose.medId].orEmpty(), s.status, s.log?.actionAt, false,
+                    s.dose.medId, s.log)
             }
             d = d.plusDays(1)
         }
@@ -188,7 +191,7 @@ object MedLogic {
             if (l.date < from.toString() || l.date > to.toString()) continue
             if (l.scheduled && "${l.date}|${l.time}|${l.medName}" in listed) continue
             out += HistoryRow(l.date, l.time, l.medName, l.amount, unit[l.medId].orEmpty(),
-                if (l.status == "skipped") Status.SKIPPED else Status.TAKEN, l.actionAt, !l.scheduled)
+                if (l.status == "skipped") Status.SKIPPED else Status.TAKEN, l.actionAt, !l.scheduled, l.medId, l)
         }
         return out.sortedWith(compareByDescending<HistoryRow> { it.date }.thenByDescending { it.time }.thenBy(nameOrder) { it.medName })
     }
