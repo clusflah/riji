@@ -87,6 +87,7 @@ public class AlarmService extends Service {
             startForeground(NOTIF_RING, n);
         }
         ringing = true;
+        showRingScreen();
 
         acquireWakeLock();
         stopPlayback();
@@ -188,6 +189,22 @@ public class AlarmService extends Service {
             try { if (wakeLock.isHeld()) wakeLock.release(); } catch (RuntimeException ignored) { }
             wakeLock = null;
         }
+    }
+
+    /**
+     * 锁屏 / 黑屏时直接打开响铃界面：全屏通知在部分国产手机上只变成一条横幅。
+     * 安卓 10 起后台不能随便开界面，用户允许了“显示在其他应用上层”才行；正在用手机时不打扰，只弹通知。
+     */
+    private void showRingScreen() {
+        if (Build.VERSION.SDK_INT < 29 || !android.provider.Settings.canDrawOverlays(this)) return;
+        android.app.KeyguardManager km = (android.app.KeyguardManager) getSystemService(Context.KEYGUARD_SERVICE);
+        PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+        boolean locked = (km != null && km.isKeyguardLocked()) || (pm != null && !pm.isInteractive());
+        if (!locked) return;
+        try {
+            startActivity(new Intent(this, AlarmActivity.class)
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP));
+        } catch (RuntimeException ignored) { }   // 打不开就算了，全屏通知照样在
     }
 
     // ---------- notifications ----------

@@ -3,6 +3,7 @@ package app.birthdayreminder.notify
 import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.AlarmManager
+import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.usage.UsageStatsManager
@@ -13,6 +14,7 @@ import android.os.Build
 import android.os.PowerManager
 import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.IntentCompat
 
 /**
  * “提醒检查”：看清楚会让提醒不准时的几个系统开关，并能一键跳到对应的系统设置页。
@@ -27,12 +29,17 @@ object Reliability {
         val fixLabel: String
     )
 
+    /** 会被勿扰、锁屏影响的几类提醒通知（闹钟走闹钟音量，本来就能穿过勿扰） */
+    private val REMIND_CHANNELS = listOf(NotificationHelper.CHANNEL_ID, MedNotify.CHANNEL, MedNotify.CHANNEL_RING)
+
     fun check(ctx: Context): List<Item> {
         val app = ctx.applicationContext
         val settings = SettingsStore.get(app)
         val nm = app.getSystemService(NotificationManager::class.java)
+        // 刚从系统设置里给了“勿扰权限”回来：马上把提醒渠道设成能穿过勿扰，下面的检查就能直接变绿
+        applyDndBypass(app)
         // “生日与提醒”“用药提醒”“用药提醒（响铃）”几类通知，哪个被单独关掉都算（还没建的渠道不算）
-        val channelOn = Build.VERSION.SDK_INT < 26 || listOf(NotificationHelper.CHANNEL_ID, MedNotify.CHANNEL, MedNotify.CHANNEL_RING).all {
+        val channelOn = Build.VERSION.SDK_INT < 26 || REMIND_CHANNELS.all {
             (nm.getNotificationChannel(it)?.importance ?: NotificationManager.IMPORTANCE_DEFAULT) != NotificationManager.IMPORTANCE_NONE
         }
         val notifOk = NotificationManagerCompat.from(app).areNotificationsEnabled() && channelOn
@@ -45,6 +52,16 @@ object Reliability {
             (Build.VERSION.SDK_INT < 30 || (app.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager).appStandbyBucket < UsageStatsManager.STANDBY_BUCKET_RESTRICTED))
         // Android 14 起“全屏通知”可以单独关掉：关了之后锁屏时不会弹出闹钟响铃界面，只剩一条横幅
         val fullScreenOk = Build.VERSION.SDK_INT < 34 || nm.canUseFullScreenIntent()
+        // 安卓 11 起几个月没打开的 App 会被收回权限，12 起还会“休眠”，已经排好的定时全被清掉——一年一次的生日最容易中招
+        val hibernateOk = Build.VERSION.SDK_INT < 30 || app.packageManager.isAutoRevokeWhitelisted
+        // 勿扰模式下普通通知会被静音甚至不弹；提醒渠道要设成“可以打扰”才行（还没建的渠道不算）
+        val dndOk = Build.VERSION.SDK_INT < 26 || REMIND_CHANNELS.all { nm.getNotificationChannel(it)?.canBypassDnd() ?: true }
+        // 安卓 10 起后台不能直接打开界面；有了“显示在其他应用上层”，锁屏时闹钟一定能弹出响铃界面（不少国产手机光靠全屏通知不够）
+        val overlayOk = Build.VERSION.SDK_INT < 29 || Settings.canDrawOverlays(app)
+        // 锁屏上不显示通知：亮屏之前看不到提醒。全局开关读不到就不管它
+        val lockGlobalOn = try { Settings.Secure.getInt(app.contentResolver, "lock_screen_show_notifications", 1) != 0 } catch (e: Exception) { true }
+        val lockOk = lockGlobalOn && (Build.VERSION.SDK_INT < 26 ||
+            REMIND_CHANNELS.none { nm.getNotificationChannel(it)?.lockscreenVisibility == Notification.VISIBILITY_SECRET })
         // 最近 30 天里闹钟有没有因为系统拒绝而改用保底通知
         val sp = app.getSharedPreferences("li_native_prefs", Context.MODE_PRIVATE)
         val fallbackAt = sp.getLong("alarmFallbackAt", 0L)
@@ -60,6 +77,12 @@ object Reliability {
             Item("battery", "不受省电限制", batteryOk, "已允许", "没有允许：手机省电时可能推迟提醒，建议允许", "去允许"),
             Item("background", "后台运行", bgOk, "没有被限制", "被限制了：App 不在前台时提醒和闹钟可能完全收不到，请在“应用信息 → 耗电”里改成“不限制”", "去设置"),
             Item("fullscreen", "全屏通知（闹钟响铃界面）", fullScreenOk, "已允许", "被关掉了：锁屏时闹钟不会弹出响铃界面，只有一条横幅", "去允许"),
+            Item("hibernate", "长期不打开也不停用", hibernateOk, "已允许",
+                "没有允许：几个月不打开日迹，系统会收回权限、清掉排好的提醒。请关掉“App 不使用时暂停活动 / 移除权限”", "去设置"),
+            Item("dnd", "勿扰模式下也提醒", dndOk, "已允许",
+                "没有允许：开着勿扰时，生日、提醒和吃药通知会被静音或不弹出（闹钟不受影响）。点“去允许”后打开日迹的勿扰权限，或在通知设置里允许这几类通知“覆盖勿扰”", "去允许"),
+            Item("overlay", "显示在其他应用上层", overlayOk, "已允许", "没有允许：部分手机锁屏时闹钟只响铃、不弹出响铃界面", "去允许"),
+            Item("lockscreen", "锁屏显示通知", lockOk, "已允许", "被关掉了：锁屏时看不到提醒，要解锁才发现。请在通知设置里允许锁屏显示", "去设置"),
             Item("late", "提醒准时弹出", late == null, "最近 30 天没有晚弹的提醒",
                 "$lateWhen 的提醒晚了 ${late?.second ?: 0} 分钟才弹出：手机在后台把日迹压住了。请打开下面的“闹钟级提醒”，并按下面的说明允许后台运行", "去设置"),
             Item("alarmsvc", "闹钟响铃", fallbackOk, "正常",
@@ -76,6 +99,13 @@ object Reliability {
             "exact" -> if (Build.VERSION.SDK_INT >= 31) Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:$pkg")) else null
             "battery" -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$pkg"))
             "fullscreen" -> if (Build.VERSION.SDK_INT >= 34) Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, Uri.parse("package:$pkg")) else null
+            "hibernate" -> if (Build.VERSION.SDK_INT >= 30) IntentCompat.createManageUnusedAppRestrictionsIntent(ctx, pkg) else null
+            // 还没有勿扰权限：先去授权，回来后自动把渠道设成可以打扰；已经有了还不行（用户自己改过渠道）就去通知设置手动开
+            "dnd" -> if (Build.VERSION.SDK_INT >= 26 && !ctx.getSystemService(NotificationManager::class.java).isNotificationPolicyAccessGranted)
+                Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS)
+                else Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
+            "overlay" -> Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$pkg"))
+            "lockscreen" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, pkg)
             "late" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             "background" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
             "alarmsvc" -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg"))
@@ -87,18 +117,33 @@ object Reliability {
     /** 某些手机没有对应页面时的备用入口 */
     fun fallbackIntent(ctx: Context, key: String): Intent? = when (key) {
         "battery" -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        "dnd", "lockscreen" -> Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
         else -> Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${ctx.packageName}"))
     }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    /**
+     * 有了勿扰权限，就把提醒渠道设成“可以打扰”。渠道建好后普通 App 改不了这一项，
+     * 有勿扰权限、而且用户没自己改过这个渠道时系统才认；不认的话检查里继续提示去通知设置手动开。
+     */
+    fun applyDndBypass(ctx: Context) {
+        if (Build.VERSION.SDK_INT < 26) return
+        val nm = ctx.getSystemService(NotificationManager::class.java)
+        if (!nm.isNotificationPolicyAccessGranted) return
+        REMIND_CHANNELS.forEach { id ->
+            val ch = nm.getNotificationChannel(id) ?: return@forEach
+            if (!ch.canBypassDnd()) try { ch.setBypassDnd(true); nm.createNotificationChannel(ch) } catch (e: Exception) { }
+        }
+    }
 
     /** 不同牌子手机放开后台的位置不一样，按牌子给出具体路径 */
     val VENDOR_TIP: String get() = when (Build.MANUFACTURER.lowercase()) {
         "oppo", "realme", "oneplus" ->
             "OPPO / 一加 / 真我：在“设置 → 应用 → 应用管理 → 日迹 → 耗电管理”里打开“允许完全后台行为”“允许自动启动”“允许关联启动”；" +
-                "再在最近任务里把日迹下拉加锁，免得清理后台时被关掉。"
+                "在“权限 → 悬浮窗”里允许日迹；再在最近任务里把日迹下拉加锁，免得清理后台时被关掉。"
         "vivo", "iqoo" ->
-            "vivo：在“设置 → 电池 → 后台耗电管理 → 日迹”选“允许后台高耗电”；在“i 管家 → 应用管理 → 权限管理 → 自启动”里允许日迹；最近任务里把日迹加锁。"
+            "vivo：在“设置 → 电池 → 后台耗电管理 → 日迹”选“允许后台高耗电”；在“i 管家 → 应用管理 → 权限管理”里允许日迹“自启动”“后台弹出界面”“锁屏显示”；最近任务里把日迹加锁。"
         "xiaomi", "redmi" ->
-            "小米 / 红米：在“设置 → 应用设置 → 应用管理 → 日迹”里打开“自启动”，“省电策略”选“无限制”；最近任务里把日迹加锁。"
+            "小米 / 红米：在“设置 → 应用设置 → 应用管理 → 日迹”里打开“自启动”，“省电策略”选“无限制”，“其他权限”里允许“后台弹出界面”“锁屏显示”；最近任务里把日迹加锁。"
         "huawei", "honor" ->
             "华为 / 荣耀：在“设置 → 电池 → 应用启动管理 → 日迹”关掉“自动管理”，把“允许自启动”“允许关联启动”“允许后台活动”都打开。"
         else -> "部分手机还需在“应用信息 → 耗电”里允许后台运行和自启动；最近任务里把日迹加锁。"

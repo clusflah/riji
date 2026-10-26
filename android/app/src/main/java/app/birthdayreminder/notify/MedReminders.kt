@@ -121,6 +121,7 @@ object MedNotify {
         if (nm.getNotificationChannel(CHANNEL) == null) {
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "用药提醒", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "到点吃药、库存不足、药品过期"
+                if (nm.isNotificationPolicyAccessGranted) setBypassDnd(true)   // 有勿扰权限：勿扰时也照常提醒
             })
         }
         if (nm.getNotificationChannel(CHANNEL_RING) == null) {
@@ -129,6 +130,7 @@ object MedNotify {
                 setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
                     AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
                 enableVibration(true)
+                if (nm.isNotificationPolicyAccessGranted) setBypassDnd(true)
             })
         }
     }

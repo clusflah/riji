@@ -30,6 +30,10 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- “提醒检查”里一键申请不被省电策略限制 -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- “提醒检查”：勿扰模式下也能提醒（授权后把提醒类通知设成“可以打扰”） -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- “提醒检查”：显示在其他应用上层，锁屏时闹钟一定能从后台弹出响铃界面 -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- AI 助手：按住说话 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
