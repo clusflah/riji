@@ -2,7 +2,12 @@ package app.birthdayreminder.notify
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.app.job.JobInfo
+import android.app.job.JobParameters
+import android.app.job.JobScheduler
+import android.app.job.JobService
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import app.birthdayreminder.AlarmEngine
@@ -39,9 +44,18 @@ object Upkeep {
         CoroutineScope(Dispatchers.IO).launch { runAll(app) }
     }
 
-    /** 每天凌晨 0:20 左右醒一次做检修；不要求准时，省电模式下晚一点也没关系 */
+    /** 只重排会弹通知的三类（生日/提醒、用药、生理期）：系统任务兜底用，过点没弹的会补发 */
+    suspend fun catchUp(ctx: Context) {
+        val app = ctx.applicationContext
+        try { ReminderScheduler.reschedule(app) } catch (e: Exception) { }
+        try { MedScheduler.rescheduleNow(app) } catch (e: Exception) { }
+        try { CycleScheduler.rescheduleNow(app) } catch (e: Exception) { }
+    }
+
+    /** 每天凌晨 0:20 左右醒一次做检修；不要求准时，省电模式下晚一点也没关系。顺带确认兜底的系统任务还在 */
     fun armDaily(ctx: Context) {
         val app = ctx.applicationContext
+        UpkeepJob.ensure(app)
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val at = LocalDate.now().plusDays(1).atTime(0, 20).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val pi = PendingIntent.getBroadcast(app, CODE, Intent(app, ReminderBootReceiver::class.java).setAction(ACTION_DAILY),
@@ -52,6 +66,39 @@ object Upkeep {
             am.set(AlarmManager.RTC_WAKEUP, at, pi)
         }
     }
+}
+
+/**
+ * 兜底：系统任务（JobScheduler）每 15 分钟左右跑一次补发检查，和 AlarmManager 的定时完全不相干。
+ * 定时不管因为什么丢了（重排被打断、系统清掉、厂商压住），过点没弹的提醒最多再等一轮任务就会补出来，
+ * 不用等到凌晨检修或者打开 App。手机重启后系统会自己把任务排回来（setPersisted）。
+ */
+class UpkeepJob : JobService() {
+    companion object {
+        private const val ID = 6981
+
+        /** 已经排着就不动：重新排会把计时清零，频繁调用的话任务永远轮不到跑 */
+        fun ensure(ctx: Context) {
+            try {
+                val js = ctx.getSystemService(JobScheduler::class.java) ?: return
+                if (js.getPendingJob(ID) != null) return
+                js.schedule(JobInfo.Builder(ID, ComponentName(ctx, UpkeepJob::class.java))
+                    .setPeriodic(15 * 60_000L)
+                    .setPersisted(true)
+                    .build())
+            } catch (e: Exception) { }
+        }
+    }
+
+    override fun onStartJob(params: JobParameters): Boolean {
+        val app = applicationContext
+        CoroutineScope(Dispatchers.IO).launch {
+            try { Upkeep.catchUp(app) } finally { jobFinished(params, false) }
+        }
+        return true
+    }
+
+    override fun onStopJob(params: JobParameters): Boolean = true
 }
 
 /** 开机、升级、改系统时间/时区、准时权限变化之后（AlarmManager 里的定时会丢或者不准），以及每天凌晨的检修，都在这里重排一遍。 */

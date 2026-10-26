@@ -40,14 +40,14 @@ class MedViewModel(app: Application) : AndroidViewModel(app) {
     fun saveRecord(r: MedicalRecord, removedImages: List<String>, onDone: () -> Unit) = viewModelScope.launch {
         dao.upsertRecord(r.copy(updatedAt = System.currentTimeMillis()))
         removedImages.forEach { ImageStorage.delete(getApplication(), it) }
-        MedScheduler.reschedule(getApplication())      // 复诊提醒跟着变
+        MedScheduler.rescheduleSafe(getApplication())      // 复诊提醒跟着变
         onDone()
     }
 
     fun deleteRecord(r: MedicalRecord, onDone: () -> Unit) = viewModelScope.launch {
         dao.deleteRecord(r.id)
         MedicalLogic.listFromJson(r.images).forEach { ImageStorage.delete(getApplication(), it) }
-        MedScheduler.reschedule(getApplication())
+        MedScheduler.rescheduleSafe(getApplication())
         onDone()
     }
 
@@ -64,14 +64,14 @@ class MedViewModel(app: Application) : AndroidViewModel(app) {
 
     fun save(m: Medication, onDone: () -> Unit) = viewModelScope.launch {
         dao.upsertMed(m.copy(updatedAt = System.currentTimeMillis()))
-        MedScheduler.reschedule(getApplication())
+        MedScheduler.rescheduleSafe(getApplication())
         onDone()
     }
 
     /** 删除药品（服药记录保留，历史里还能看到） */
     fun delete(id: String, onDone: () -> Unit) = viewModelScope.launch {
         dao.deleteMed(id)
-        MedScheduler.reschedule(getApplication())
+        MedScheduler.rescheduleSafe(getApplication())
         onDone()
     }
 

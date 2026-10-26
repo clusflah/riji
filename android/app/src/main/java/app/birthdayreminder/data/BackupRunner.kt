@@ -222,7 +222,7 @@ object BackupRunner {
             data.medications?.let { db.medDao().deleteAllMeds(); db.medDao().upsertMeds(it) }
             data.medLogs?.let { db.medDao().deleteAllLogs(); db.medDao().upsertLogs(it) }
             data.medicalRecords?.let { db.medDao().deleteAllRecords(); db.medDao().upsertRecords(it) }
-            if (data.medications != null || data.medicalRecords != null) MedScheduler.reschedule(app)
+            if (data.medications != null || data.medicalRecords != null) MedScheduler.rescheduleSafe(app)
             data.cycleDays?.let { db.cycleDao().deleteAll(); db.cycleDao().upsertAll(it) }
             data.cycleSettings?.let { c ->
                 Prefs.setCycleBirthControl(app, c.birthControl); Prefs.setCycleDefaultLength(app, c.cycleLength); Prefs.setCycleDefaultPeriod(app, c.periodLength)

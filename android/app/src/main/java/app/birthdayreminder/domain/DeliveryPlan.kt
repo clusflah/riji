@@ -13,7 +13,8 @@ object DeliveryPlan {
     /** 补发的几条之间隔开几秒，免得挤在同一瞬间被系统限流 */
     const val CATCH_UP_GAP_MS = 3_000L
 
-    data class Slot(val key: String, val fireAt: Long)
+    /** fireAt：排给系统的时间；due：提醒原定的时间（补发的那条 fireAt 是“现在”，due 还是原来的点） */
+    data class Slot(val key: String, val fireAt: Long, val due: Long = fireAt)
 
     /**
      * entries：重新算出来的（key, 原定时间），要包含最近 GRACE_MS 内已经过点的。
@@ -27,7 +28,7 @@ object DeliveryPlan {
             if (out.any { it.key == key }) continue
             when {
                 at > now -> out += Slot(key, at)
-                at > now - GRACE_MS && key in promised -> out += Slot(key, now + CATCH_UP_GAP_MS * ++late)
+                at > now - GRACE_MS && key in promised -> out += Slot(key, now + CATCH_UP_GAP_MS * ++late, at)
             }
         }
         return out.sortedBy { it.fireAt }

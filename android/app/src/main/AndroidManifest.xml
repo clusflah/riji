@@ -155,6 +155,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- 兜底的补发检查：系统任务每 15 分钟左右跑一次，定时丢了也能把过点没弹的提醒补出来 -->
+        <service
+            android:name=".notify.UpkeepJob"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
         <service
             android:name=".AlarmService"
             android:exported="false"

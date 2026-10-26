@@ -32,11 +32,15 @@ object CycleScheduler {
     suspend fun rescheduleNow(app: Context) = Delivery.lock.withLock {
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val sp = app.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-        for (i in 0 until maxOf(sp.getInt("count", MAX), 1)) {
-            am.cancel(PendingIntent.getBroadcast(app, BASE + i, Intent(app, NotifyReceiver::class.java).setAction(ACTION),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+        // 先排新的（同一个请求码会顶掉旧的），最后只取消多出来的：中途被系统打断也不会一条都不剩
+        fun cancelFrom(from: Int) {
+            for (i in from until maxOf(sp.getInt("count", MAX), 1)) {
+                am.cancel(PendingIntent.getBroadcast(app, BASE + i, Intent(app, NotifyReceiver::class.java).setAction(ACTION),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+            }
         }
         if (!Prefs.moduleOn(app, Modules.CYCLE)) {
+            cancelFrom(0)
             sp.edit().putInt("count", 0).apply()
             Delivery.savePromised(app, GROUP, emptyList())
             return@withLock
@@ -52,15 +56,18 @@ object CycleScheduler {
         val entries = byKey.map { (k, a) -> k to a.date.atTime(9, 0).atZone(zone).toInstant().toEpochMilli() }
         // 今天 9 点那条被推迟、又赶上重排的，照样补发（见 DeliveryPlan）
         val slots = DeliveryPlan.plan(entries, Delivery.promised(app, GROUP), System.currentTimeMillis()).take(MAX)
+        // 先记“答应过”再排：排到一半被打断，没排上的下次检修会补发
+        Delivery.savePromised(app, GROUP, slots.map { it.key })
         slots.forEachIndexed { n, slot ->
             val a = byKey.getValue(slot.key)
             val i = Intent(app, NotifyReceiver::class.java).setAction(ACTION)
                 .putExtra("id", DeliveryPlan.notifId(slot.key, BASE + 100, 100)).putExtra("title", a.title).putExtra("body", a.body)
                 .putExtra(NotifyReceiver.EXTRA_GROUP, GROUP).putExtra(Delivery.EXTRA_KEY, slot.key).putExtra(Delivery.EXTRA_AT, slot.fireAt)
+                .putExtra(Delivery.EXTRA_DUE, slot.due)
             val pi = PendingIntent.getBroadcast(app, BASE + n, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             Delivery.setExact(app, slot.fireAt, pi)
         }
+        cancelFrom(slots.size)
         sp.edit().putInt("count", slots.size).apply()
-        Delivery.savePromised(app, GROUP, slots.map { it.key })
     }
 }

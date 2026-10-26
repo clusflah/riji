@@ -4,7 +4,9 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.os.Build
+import android.os.SystemClock
 import app.birthdayreminder.MainActivityCompose
 import app.birthdayreminder.domain.DeliveryPlan
 import kotlinx.coroutines.sync.Mutex
@@ -24,6 +26,8 @@ object Delivery {
      * 用原定时间的话，关机一晚、开机后补发的提醒也会被算成“晚了”，冤枉了系统
      */
     const val EXTRA_AT = "dat"
+    /** 提醒原定的时间。补发的那条 EXTRA_AT 是补发时刻，只看它的话“定时丢了、半夜检修才补出来”永远不算晚 */
+    const val EXTRA_DUE = "ddue"
     private const val PREF = "delivery"
     private const val SHOW_CODE = 6970
     /** 晚了这么久才弹出，就算“被系统耽误了” */
@@ -59,22 +63,37 @@ object Delivery {
         prefs(ctx).edit().putStringSet("p_$group", keys.toSet()).commit()
     }
 
+    /** 弹过的 key 记多久：key 里都带着日期时间，同一个 key 不会过几天又该弹 */
+    private const val SHOWN_KEEP_MS = 3 * 24 * 3600_000L
+
+    /** 弹过的 key（“弹出时间|key”），去掉太早的 */
+    private fun shown(sp: SharedPreferences, group: String, now: Long): Set<String> =
+        sp.getStringSet("sh_$group", null).orEmpty().filter { (it.substringBefore('|').toLongOrNull() ?: 0L) > now - SHOWN_KEEP_MS }.toSet()
+
     /**
      * 到点要弹之前调用，返回这一条该不该弹：
-     * 带 key 的，还在名单上就划掉并返回 true；已经划掉了（补发和原来那条都到了）返回 false，不重复弹。
+     * 带 key 的，只要以前没弹过就弹，并记成“弹过”、从“答应过”名单上划掉；弹过的（补发和原来那条都到了）返回 false，不重复弹。
+     * 以前是“不在答应过名单上就不弹”：名单没来得及存（重排存名单之前进程被杀）的那条，定时到了也被悄悄吞掉。
      * 没有 key 的（测试通知、稍后提醒、升级前排的）一律弹。
      */
     suspend fun claim(ctx: Context, group: String, intent: Intent): Boolean = lock.withLock {
         val sp = prefs(ctx)
-        val at = intent.getLongExtra(EXTRA_AT, 0L)
         val now = System.currentTimeMillis()
-        if (at > 0 && now - at > LATE_MS) sp.edit().putLong("lateAt", at).putLong("lateMin", (now - at) / 60_000).apply()
         val snz = intent.getIntExtra(EXTRA_SNOOZE, 0)
         if (snz != 0) sp.edit().remove("s_$snz").commit()
-        val key = intent.getStringExtra(EXTRA_KEY) ?: return@withLock true
-        val set = promised(ctx, group)
-        if (key !in set) return@withLock false
-        savePromised(ctx, group, set - key)
+        val key = intent.getStringExtra(EXTRA_KEY)
+        if (key != null) {
+            val done = shown(sp, group, now)
+            if (done.any { it.substringAfter('|') == key }) return@withLock false
+            sp.edit().putStringSet("sh_$group", done + "$now|$key").commit()
+            savePromised(ctx, group, promised(ctx, group) - key)
+        }
+        // 原定时间手机是开着的（在这次开机之后），就按原定时间算晚了多久；
+        // 原定时间手机还关着，就按补发时刻算，不冤枉系统
+        val due = intent.getLongExtra(EXTRA_DUE, 0L)
+        val bootAt = now - SystemClock.elapsedRealtime()
+        val at = if (due > bootAt) due else intent.getLongExtra(EXTRA_AT, 0L)
+        if (at > 0 && now - at > LATE_MS) sp.edit().putLong("lateAt", at).putLong("lateMin", (now - at) / 60_000).apply()
         true
     }
 
@@ -95,6 +114,7 @@ object Delivery {
         val app = ctx.applicationContext
         intent.removeExtra(EXTRA_KEY)          // 稍后提醒不受“答应过”的名单管，到点一定弹
         intent.removeExtra(EXTRA_AT)           // 也不算“晚了”
+        intent.removeExtra(EXTRA_DUE)
         intent.putExtra(EXTRA_SNOOZE, code)
         val pi = PendingIntent.getBroadcast(app, code, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         setExact(app, at, pi)

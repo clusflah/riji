@@ -24,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -31,6 +32,13 @@ import java.util.UUID
 
 /** 服药的记录操作（界面和通知按钮共用）：已服用（扣库存、低库存提醒）、跳过、撤销、临时加一次 */
 object MedActions {
+    /**
+     * 记完之后等重排做完再返回。以前是另开一个协程“发出去就不管”：点通知上的“已服用”时广播一结束，
+     * OPPO 等系统马上冻结或杀掉日迹，重排刚把旧定时取消、新的还没排上就断了，当天后面的吃药提醒全没了，
+     * 要等凌晨检修才当成漏掉的补发（晚上 9 点的药半夜才弹）
+     */
+    private suspend fun resched(app: Context) = MedScheduler.rescheduleSafe(app)
+
     suspend fun take(ctx: Context, medId: String, date: String, time: String, amount: Double, scheduled: Boolean = true) {
         val app = ctx.applicationContext
         val dao = AppDatabase.get(app).medDao()
@@ -44,7 +52,7 @@ object MedActions {
             dao.upsertMed(after)
             if (MedLogic.isLow(after) && !MedLogic.isLow(med)) MedNotify.lowStock(app, after)
         }
-        MedScheduler.reschedule(app)
+        resched(app)
     }
 
     suspend fun skip(ctx: Context, medId: String, date: String, time: String, amount: Double) {
@@ -56,7 +64,7 @@ object MedActions {
         // 从“已服用”改成“跳过”：把扣掉的库存加回来
         if (old?.status == "taken" && med.stock != null) dao.upsertMed(med.copy(stock = med.stock + old.amount))
         dao.upsertLog(MedLog(id, medId, med.name, date, time, amount, "skipped", System.currentTimeMillis(), true))
-        MedScheduler.reschedule(app)
+        resched(app)
     }
 
     /** 记成某个时间吃的（避孕药历史里改时间、补记用）；之前没吃过才扣库存 */
@@ -68,7 +76,7 @@ object MedActions {
         val old = dao.getLogs().firstOrNull { it.id == id }
         dao.upsertLog(MedLog(id, medId, med.name, date, time, amount, "taken", actionAt, true))
         if (old?.status != "taken") dao.upsertMed(med.copy(stock = MedLogic.afterTake(med.stock, amount)))
-        MedScheduler.reschedule(app)
+        resched(app)
     }
 
     /** 撤销一条记录（吃过的话把库存加回来） */
@@ -77,7 +85,7 @@ object MedActions {
         val dao = AppDatabase.get(app).medDao()
         dao.deleteLog(log.id)
         if (log.status == "taken") dao.getMed(log.medId)?.let { m -> if (m.stock != null) dao.upsertMed(m.copy(stock = m.stock + log.amount)) }
-        MedScheduler.reschedule(app)
+        resched(app)
     }
 }
 
@@ -188,7 +196,12 @@ object MedScheduler {
         CoroutineScope(Dispatchers.IO).launch { try { rescheduleNow(app) } catch (e: Exception) { } }
     }
 
-    suspend fun rescheduleNow(app: Context) = Delivery.lock.withLock { rescheduleLocked(app) }
+    suspend fun rescheduleNow(app: Context) = withContext(Dispatchers.IO) { Delivery.lock.withLock { rescheduleLocked(app) } }
+
+    /** 重排做完再返回，出错不往外抛。能等的地方都用这个，不要用 reschedule()“发出去就不管” */
+    suspend fun rescheduleSafe(ctx: Context) {
+        try { rescheduleNow(ctx.applicationContext) } catch (e: Exception) { }
+    }
 
     private suspend fun rescheduleLocked(app: Context) {
         val dao = AppDatabase.get(app).medDao()
@@ -198,37 +211,33 @@ object MedScheduler {
         val logs = dao.getLogs()
         val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         val sp = app.getSharedPreferences(PREF, Context.MODE_PRIVATE)
-        // 先取消上次排的
-        val old = sp.getInt("count", MAX)
-        for (i in 0 until maxOf(old, 1)) {
-            am.cancel(PendingIntent.getBroadcast(app, BASE + i, Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
-        }
         val zone = ZoneId.systemDefault()
         // 往前多看 6 小时：到点时被推迟、又赶上重排的那一次，还没记录就补发（见 DeliveryPlan）
         val ups = MedLogic.upcoming(meds, logs, LocalDateTime.now().minusHours(6), zone, hours = 54, max = MAX)
         val byKey = ups.associateBy { it.dose.key }
         val slots = DeliveryPlan.plan(ups.map { it.dose.key to it.at }, Delivery.promised(app, GROUP), System.currentTimeMillis()).take(MAX)
         val byId = meds.associateBy { it.id }
+        // 先记“答应过”再排：排到一半被打断，没排上的也在名单里，下次检修会当成漏掉的补发
+        Delivery.savePromised(app, GROUP, slots.map { it.key })
         slots.forEachIndexed { i, slot ->
             val u = byKey.getValue(slot.key)
             val m = byId[u.dose.medId] ?: return@forEachIndexed
             val intent = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW)
                 .putExtra("nid", notifId(u.dose.key)).putExtra("medId", m.id).putExtra("name", MedNotify.shownName(m)).putExtra("dosage", if (m.isPrivate) "" else m.dosage)
                 .putExtra("date", u.dose.date.toString()).putExtra("time", u.dose.time).putExtra("amount", u.dose.amount).putExtra("unit", m.unit)
-                .putExtra(Delivery.EXTRA_KEY, slot.key).putExtra(Delivery.EXTRA_AT, slot.fireAt)
+                .putExtra(Delivery.EXTRA_KEY, slot.key).putExtra(Delivery.EXTRA_AT, slot.fireAt).putExtra(Delivery.EXTRA_DUE, slot.due)
             val pi = PendingIntent.getBroadcast(app, BASE + i, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             Delivery.setExact(app, slot.fireAt, pi)
         }
-        sp.edit().putInt("count", slots.size).apply()
-        Delivery.savePromised(app, GROUP, slots.map { it.key })
-
-        // 复诊：前一天 20:00、当天 09:00 各提醒一次（复诊不多，提前排好，不受 48 小时限制）
-        val oldFu = sp.getInt("fu_count", FU_MAX)
-        for (i in 0 until maxOf(oldFu, 1)) {
-            am.cancel(PendingIntent.getBroadcast(app, FU_BASE + i, Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_FOLLOWUP),
+        // 同一个请求码再排一次会直接顶掉旧的，所以先排新的、最后只取消多出来的：
+        // 重排中途被系统打断，手里也还有一套完整的定时，不会出现旧的取消了、新的没排上
+        for (i in slots.size until maxOf(sp.getInt("count", MAX), 1)) {
+            am.cancel(PendingIntent.getBroadcast(app, BASE + i, Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_SHOW),
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         }
+        sp.edit().putInt("count", slots.size).apply()
+
+        // 复诊：前一天 20:00、当天 09:00 各提醒一次（复诊不多，提前排好，不受 48 小时限制）
         val nowMs = System.currentTimeMillis()
         var n = 0
         for (f in MedicalLogic.upcomingFollowUps(if (on) dao.getRecords() else emptyList(), LocalDate.now())) {
@@ -246,6 +255,10 @@ object MedScheduler {
                 Delivery.setExact(app, ms, pi)
                 n++
             }
+        }
+        for (i in n until maxOf(sp.getInt("fu_count", FU_MAX), 1)) {
+            am.cancel(PendingIntent.getBroadcast(app, FU_BASE + i, Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_FOLLOWUP),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
         }
         sp.edit().putInt("fu_count", n).apply()
         // 有效期：过期的药每天最多提醒一次

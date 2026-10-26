@@ -26,7 +26,7 @@ object ReminderScheduler {
     /** 通知编号按这一条提醒固定（40000–49999）：以前用排序序号，重排后后一条会顶掉还没处理的前一条通知 */
     fun notifId(key: String) = DeliveryPlan.notifId(key, 40000, 10000)
 
-    private fun pendingIntent(ctx: Context, code: Int, item: ScheduleBuilder.Item?, create: Boolean, fireAt: Long = 0L): PendingIntent? {
+    private fun pendingIntent(ctx: Context, code: Int, item: ScheduleBuilder.Item?, create: Boolean, fireAt: Long = 0L, due: Long = 0L): PendingIntent? {
         val intent = Intent(ctx, NotifyReceiver::class.java).apply {
             action = ACTION
             if (item != null) {
@@ -36,6 +36,7 @@ object ReminderScheduler {
                 putExtra(NotifyReceiver.EXTRA_GROUP, GROUP)
                 putExtra(Delivery.EXTRA_KEY, item.key)
                 putExtra(Delivery.EXTRA_AT, fireAt)
+                putExtra(Delivery.EXTRA_DUE, due)
                 // 提醒事项才有：通知上的“完成 / 稍后提醒”按钮要知道是哪条、哪一天
                 item.reminderId?.let { putExtra("rid", it) }
                 item.occurrence?.let { putExtra("occ", it) }
@@ -70,15 +71,16 @@ object ReminderScheduler {
 
         NotificationHelper.ensureChannel(app)
 
-        for (i in 0 until MAX_NOTIF) {
-            pendingIntent(app, BASE_CODE + i, null, false)?.let { am.cancel(it) }
-        }
-
+        // 先记“答应过”再排：排到一半被打断，没排上的下次检修会补发
+        Delivery.savePromised(app, GROUP, slots.map { it.key })
+        // 先排新的（同一个请求码会顶掉旧的），最后只取消多出来的：中途被系统打断也不会一条都不剩
         slots.forEachIndexed { i, slot ->
             val item = byKey[slot.key] ?: return@forEachIndexed
-            val pi = pendingIntent(app, BASE_CODE + i, item, true, slot.fireAt) ?:return@forEachIndexed
+            val pi = pendingIntent(app, BASE_CODE + i, item, true, slot.fireAt, slot.due) ?:return@forEachIndexed
             Delivery.setExact(app, slot.fireAt, pi)
         }
-        Delivery.savePromised(app, GROUP, slots.map { it.key })
+        for (i in slots.size until MAX_NOTIF) {
+            pendingIntent(app, BASE_CODE + i, null, false)?.let { am.cancel(it) }
+        }
     }
 }
