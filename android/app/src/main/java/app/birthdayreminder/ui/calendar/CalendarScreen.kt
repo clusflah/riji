@@ -734,7 +734,8 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
         // 最多画 3 个，再多画一个小“+”，挤在一起分不清
         val dots = buildList {
             if (day.hasBirthday) add(LiColors.birthday to false)
-            if (day.hasReminder) add(LiColors.reminder to false)
+            // 提醒：都打勾了画灰点，还有没做的才是紫点（一眼看出哪天落下了）
+            if (day.hasReminder) add((if (day.remindersDone) doneDotColor() else LiColors.reminder) to false)
             if (day.hasDiary) add(LiColors.diary to false)
             // 学习：黑色（深色模式下黑点看不见，用正文色，也就是白色）
             if (day.hasStudy) add(MaterialTheme.colorScheme.onSurface to false)
@@ -972,7 +973,8 @@ private fun cellDescription(day: CalendarDayUi, showLunar: Boolean): String = bu
     val fest = day.festivalLabel
     if (fest != null) add(fest) else if (showLunar) add("农历" + day.lunarLabel)
     if (day.hasBirthday) add("有生日")
-    if (day.hasReminder || day.hasDiary) add("有提醒或日记")
+    if (day.hasReminder) add(if (day.remindersDone) "提醒都已完成" else "有提醒")
+    if (day.hasDiary) add("有日记")
     if (day.hasStudy) add("有学习记录")
     val cycleText = when (day.cycleMark) {
         CycleLogic.Mark.PERIOD -> "经期"
@@ -990,7 +992,8 @@ private fun DotLegend(days: List<CalendarDayUi>) {
     val ink = MaterialTheme.colorScheme.onSurface
     val items = buildList {
         if (days.any { it.inCurrentMonth && it.hasBirthday }) add(LiColors.birthday to "生日")
-        if (days.any { it.inCurrentMonth && it.hasReminder }) add(LiColors.reminder to "提醒")
+        if (days.any { it.inCurrentMonth && it.hasReminder && !it.remindersDone }) add(LiColors.reminder to "提醒")
+        if (days.any { it.inCurrentMonth && it.remindersDone }) add(doneDotColor() to "已完成")
         if (days.any { it.inCurrentMonth && it.hasDiary }) add(LiColors.diary to "日记")
         if (days.any { it.inCurrentMonth && it.hasStudy }) add(ink to "学习")
         if (days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.PERIOD || it.cycleMark == CycleLogic.Mark.PREDICTED) }) add(LiColors.period to "经期")
@@ -1019,6 +1022,13 @@ private fun Dot(color: Color, hollow: Boolean = false) {
     if (hollow) Box(modifier = Modifier.size(5.dp).border(1.dp, color, CircleShape))
     else Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(color))
 }
+
+/**
+ * 提醒都做完了的灰点：用次要文字色压一点透明度，浅色、深色模式下都看得见，又明显比彩色点弱一档。
+ * 不能太淡：不属于本月的格子整格已经变淡，太浅的灰点在那里就看不见了
+ */
+@Composable
+private fun doneDotColor(): Color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
 
 /** 一天里超过 3 类记录：最后画一个小“+” */
 @Composable

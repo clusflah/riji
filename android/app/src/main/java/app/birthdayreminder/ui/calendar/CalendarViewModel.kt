@@ -52,6 +52,7 @@ data class CalendarDayUi(
     val lunarLabel: String,
     val hasBirthday: Boolean,
     val hasReminder: Boolean,
+    val remindersDone: Boolean = false,   // 这天的提醒都打勾了（圆点画成灰色，紫点只留给还没做的）
     val hasDiary: Boolean,
     val hasStudy: Boolean = false,
     val holidayTag: String?,     // "休" 法定假期 / "班" 调休补班 / null 普通日
@@ -228,13 +229,15 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         val study = if (Prefs.moduleOn(app, Modules.STUDY)) allStudy.map { it.date }.toSet() else emptySet()
         return (0 until 42).map { i ->
             val date = gridStart.plusDays(i.toLong())
+            val dayRems = allReminders.filter { Occurrence.reminderOn(it, date) }
             CalendarDayUi(
                 date = date,
                 inCurrentMonth = date.monthValue == m.monthValue,
                 isToday = date == today,
                 lunarLabel = LunarCalendar.cellLabel(LunarCache.of(date)),
                 hasBirthday = allBirthdays.any { Occurrence.birthdayOn(it, date) },
-                hasReminder = allReminders.any { Occurrence.reminderOn(it, date) },
+                hasReminder = dayRems.isNotEmpty(),
+                remindersDone = dayRems.isNotEmpty() && dayRems.all { it.done[date.toString()] == true },
                 hasDiary = allDiaries.any { it.date == date.toString() },
                 hasStudy = date.toString() in study,
                 holidayTag = when {
