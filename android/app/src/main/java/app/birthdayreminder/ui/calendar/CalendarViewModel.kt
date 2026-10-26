@@ -7,6 +7,7 @@ import app.birthdayreminder.data.Alarm
 import app.birthdayreminder.domain.AgendaRange
 import app.birthdayreminder.data.CycleDay
 import app.birthdayreminder.domain.CycleLogic
+import app.birthdayreminder.domain.MedLogic
 import app.birthdayreminder.notify.Prefs
 import app.birthdayreminder.domain.Modules
 import android.app.Application
@@ -104,7 +105,9 @@ data class CalendarUiState(
     val allergy: AllergyLog? = null,
     val allergySummary: String? = null,
     val alarms: List<Alarm> = emptyList(),          // 选中这天会响的闹钟（时间轴用）
-    val studies: List<app.birthdayreminder.data.StudyLog> = emptyList()   // 选中这天的学习记录（时间轴用）
+    val studies: List<app.birthdayreminder.data.StudyLog> = emptyList(),   // 选中这天的学习记录（时间轴用）
+    val doses: List<app.birthdayreminder.domain.MedLogic.DoseState> = emptyList(),   // 选中这天要吃的药（时间轴用，私密药品不显示）
+    val medUnits: Map<String, String> = emptyMap()   // 药品 id -> 单位（“1片”）
 )
 
 class CalendarViewModel(app: Application) : AndroidViewModel(app) {
@@ -120,6 +123,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
     private var allAlarms: List<Alarm> = emptyList()
     /** 学习记录：日历上画黑色小圆点，选中那天的放进时间轴 */
     private var allStudy: List<app.birthdayreminder.data.StudyLog> = emptyList()
+    /** 用药：时间轴上显示选中这天要吃的药和吃了没有（私密药品不显示） */
+    private var allMeds: List<app.birthdayreminder.data.Medication> = emptyList()
+    private var allMedLogs: List<app.birthdayreminder.data.MedLog> = emptyList()
     private var holidays: HolidayIndex = HolidayRepository.index.value
     private var settings: AppSettings = SettingsStore.get(app)
     private var month: YearMonth = YearMonth.now()
@@ -133,6 +139,8 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
         // 闹钟：时间轴上显示选中这天会响的闹钟（私密的不显示）
         viewModelScope.launch { db.alarmDao().observeAll().collect { l -> allAlarms = l.filter { !it.isPrivate }; rebuild() } }
         viewModelScope.launch { db.studyDao().observeLogs().collect { l -> allStudy = l; rebuild() } }
+        viewModelScope.launch { db.medDao().observeMeds().collect { l -> allMeds = l.filter { !it.isPrivate }; rebuild() } }
+        viewModelScope.launch { db.medDao().observeLogs().collect { l -> allMedLogs = l; rebuild() } }
         viewModelScope.launch {
             // combine 最多一次合 5 个，分两组再合起来
             val main = combine(
@@ -354,7 +362,9 @@ class CalendarViewModel(app: Application) : AndroidViewModel(app) {
                 birthdays = bItems,
                 reminders = rItems,
                 diaries = dItems,
-                studies = if (Prefs.moduleOn(getApplication(), Modules.STUDY)) allStudy.filter { it.date == selected.toString() } else emptyList()
+                studies = if (Prefs.moduleOn(getApplication(), Modules.STUDY)) allStudy.filter { it.date == selected.toString() } else emptyList(),
+                doses = if (Prefs.moduleOn(getApplication(), Modules.MED)) MedLogic.day(allMeds, allMedLogs, selected, java.time.LocalDateTime.now()) else emptyList(),
+                medUnits = allMeds.associate { m -> m.id to m.unit }
             )
         }
     }

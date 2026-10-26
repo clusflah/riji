@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import app.birthdayreminder.notify.Prefs
 import app.birthdayreminder.data.Medication
 import app.birthdayreminder.domain.MedLogic
 import app.birthdayreminder.domain.MedLogic.MedPlan
@@ -77,6 +78,7 @@ fun MedEditScreen(id: String?, onBack: () -> Unit, initialPrivate: Boolean = fal
     var low by remember { mutableStateOf("") }
     var expiry by remember { mutableStateOf<String?>(null) }
     var active by remember { mutableStateOf(true) }
+    var ring by remember { mutableStateOf(false) }      // 像闹钟一样响（存在本机设置里）
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
 
@@ -92,6 +94,7 @@ fun MedEditScreen(id: String?, onBack: () -> Unit, initialPrivate: Boolean = fal
         start = p.start.ifEmpty { LocalDate.now().toString() }; end = p.end
         stock = m.stock?.let { MedLogic.fmt(it) } ?: ""; low = m.lowStock?.let { MedLogic.fmt(it) } ?: ""
         expiry = m.expiry; active = m.active
+        ring = m.id in Prefs.medRingIds(ctx)
     }
 
     fun pickDate(initial: String?, onPick: (String) -> Unit) {
@@ -115,7 +118,9 @@ fun MedEditScreen(id: String?, onBack: () -> Unit, initialPrivate: Boolean = fal
         val lw = low.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()
         if (low.isNotBlank() && (lw == null || lw < 0)) { error = "低库存提醒要填数字"; return }
         error = null
-        vm.save(Medication(existing?.id ?: UUID.randomUUID().toString(), n.take(30), dosage.trim().take(30), note.trim().take(200),
+        val medId = existing?.id ?: UUID.randomUUID().toString()
+        Prefs.setMedRing(ctx, medId, ring)
+        vm.save(Medication(medId, n.take(30), dosage.trim().take(30), note.trim().take(200),
             MedLogic.planToJson(plan), st, unit.trim().ifEmpty { "片" }.take(6), lw, expiry, active, isPrivate = isPrivate), onBack)
     }
 
@@ -196,6 +201,13 @@ fun MedEditScreen(id: String?, onBack: () -> Unit, initialPrivate: Boolean = fal
                     Text(if (active) "到点会提醒" else "已停用：不再提醒，记录保留", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = active, onCheckedChange = { active = it })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("像闹钟一样响")
+                    Text("用闹钟铃声，一直响到点“已服用 / 跳过”。必须按时吃的药建议打开", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = ring, onCheckedChange = { ring = it }, enabled = active)
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (existing != null) {

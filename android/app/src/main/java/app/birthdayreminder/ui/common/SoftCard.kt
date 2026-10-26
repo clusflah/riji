@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.BeachAccess
 import androidx.compose.material.icons.outlined.Cake
 import androidx.compose.material.icons.outlined.CheckCircle
@@ -210,6 +211,16 @@ fun TgFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composab
         // 阴影调低，视觉上轻一点，不和旁边的卡片抢
         elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
         content = content)
+}
+
+/** 带文字的“+”：首页选了具体标签时写明加的是什么（“+ 提醒”），点之前就知道会发生什么 */
+@Composable
+fun TgFabLabeled(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    androidx.compose.material3.ExtendedFloatingActionButton(onClick = onClick, modifier = modifier.height(48.dp), shape = RoundedCornerShape(16.dp),
+        containerColor = tgFabColor(), contentColor = Color.White,
+        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
+        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+        text = { Text(text, fontWeight = FontWeight.Medium) })
 }
 
 /** 和“+”一样大的次要按钮：浅蓝底、蓝色图标（首页左下角的“数据”） */

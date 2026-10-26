@@ -39,6 +39,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import app.birthdayreminder.ui.common.HomeTabs
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -98,7 +101,7 @@ import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, initialSub: String = "") {
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val s by SettingsStore.flow.collectAsState()
@@ -169,16 +172,18 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
 
     // 设置分两层：总览（分组卡片、摘要、常用开关）→ 点进去看这一组的详细设置
-    var sub by rememberSaveable { mutableStateOf<String?>(null) }
+    // 从首页提示条直接点进来的那一页：返回时直接回首页，不先退到设置总览
+    val directSub = when (initialSub) { "check" -> "提醒检查"; else -> null }
+    var sub by rememberSaveable { mutableStateOf(directSub) }
     var cloudList by remember { mutableStateOf<List<CloudFile>?>(null) }
-    BackHandler(enabled = sub != null) { sub = null }
+    BackHandler(enabled = sub != null && sub != directSub) { sub = null }
     val subTitle = when (sub) { null -> "设置"; "高德地图（日记里“添加位置”用）" -> "高德地图"; else -> sub!! }
 
     Scaffold(topBar = {
         TgTopBar(
             title = { Text(subTitle, fontSize = 22.sp, fontWeight = FontWeight.Medium) },
             navigationIcon = {
-                IconButton(onClick = { if (sub != null) sub = null else onBack() }) {
+                IconButton(onClick = { if (sub != null && sub != directSub) sub = null else onBack() }) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -208,11 +213,23 @@ fun SettingsScreen(onBack: () -> Unit) {
                         summaryColor = if (bad == 0) LiColors.done else MaterialTheme.colorScheme.error, last = true) { sub = "提醒检查" }
                 }
                 NavGroup("功能") {
-                    NavRow("modules", "功能开关", "已开启 $onCount 项", last = true) { sub = "功能开关" }
+                    NavRow("modules", "功能开关", "已开启 $onCount 项") { sub = "功能开关" }
+                    val tabVer by HomeTabs.version
+                    val tabCount = remember(moduleVer0, tabVer) { HomeTabs.visible(ctx).size }
+                    NavRow("calendar", "首页标签", "显示 $tabCount 个，可调整顺序", last = true) { sub = "首页标签" }
                 }
                 NavGroup("数据") {
+                    // 手动、自动、云盘备份里最近的一次；超过 7 天没备份就标橙色提醒一下
+                    val cloudOk = CloudConfig.provider(ctx) != "off" && CloudConfig.lastError(ctx).isBlank()
+                    val newest = maxOf(s.lastBackup, if (s.autoBackupError.isBlank()) s.lastAutoBackup else 0L, if (cloudOk) CloudConfig.lastAt(ctx) else 0L)
+                    val ageDays = if (newest > 0) ((System.currentTimeMillis() - newest) / 86_400_000L).toInt() else -1
                     NavRow("backup", "数据备份",
-                        if (s.lastBackup > 0) "上次 " + SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(s.lastBackup)) else "还没有备份过") { sub = "数据备份" }
+                        when {
+                            ageDays < 0 -> "还没有备份过，建议打开自动备份"
+                            ageDays > 7 -> "已经 $ageDays 天没备份了"
+                            else -> "上次 " + SimpleDateFormat("M月d日 HH:mm", Locale.CHINA).format(Date(newest))
+                        },
+                        summaryColor = if (ageDays < 0 || ageDays > 7) LiColors.holiday else null) { sub = "数据备份" }
                     val cloudVer by CloudSync.version
                     val odVer by OneDriveAuth.version
                     val bdVer by app.birthdayreminder.cloud.BaiduAuth.version
@@ -245,6 +262,33 @@ fun SettingsScreen(onBack: () -> Unit) {
                 }
             }
 
+            // ---------------- 首页标签：顺序和显示，只影响首页 ----------------
+            if (sub == "首页标签") CardGroup("首页标签") {
+                Text("只影响首页下面那一排标签，功能本身照常用（提醒照常弹）。“全部”固定在第一个。",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val moduleVer by ModuleStore.version
+                val tabVer by HomeTabs.version
+                val tabs = remember(moduleVer, tabVer) { HomeTabs.ordered(ctx).drop(1) }
+                val hidden = remember(tabVer) { Prefs.homeTabHidden(ctx) }
+                fun move(i: Int, d: Int) {
+                    val l = tabs.map { it.first }.toMutableList()
+                    val j = i + d
+                    if (j !in l.indices) return
+                    l[i] = l[j].also { l[j] = l[i] }
+                    HomeTabs.save(ctx, l, hidden)
+                }
+                tabs.forEachIndexed { i, (id, label) ->
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, modifier = Modifier.weight(1f))
+                        IconButton(onClick = { move(i, -1) }, enabled = i > 0) { Icon(Icons.Default.KeyboardArrowUp, contentDescription = "往前移") }
+                        IconButton(onClick = { move(i, 1) }, enabled = i < tabs.lastIndex) { Icon(Icons.Default.KeyboardArrowDown, contentDescription = "往后移") }
+                        Switch(checked = id !in hidden, onCheckedChange = { on ->
+                            HomeTabs.save(ctx, tabs.map { it.first }, if (on) hidden - id else hidden + id)
+                        })
+                    }
+                }
+            }
+
             if (sub == "通知") CardGroup("通知") {
                 SwitchRow("系统通知", if (permGranted) "已授权" else "尚未授权：点右边开关去授权", s.notify) { on ->
                     if (on && !permGranted) {
@@ -265,6 +309,23 @@ fun SettingsScreen(onBack: () -> Unit) {
                     }
                 }
                 SwitchRow("节假日与补班提醒", "放假和补班的前一天提醒", s.holidayAlert) { on -> change(true) { it.copy(holidayAlert = on) } }
+                // 吃药通知没处理（没点已服用 / 跳过）时再提醒
+                var nagMin by remember { mutableStateOf(Prefs.medNagMinutes(ctx)) }
+                var nagMax by remember { mutableStateOf(Prefs.medNagMax(ctx)) }
+                Text("吃药通知没处理时再提醒", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                Text("没点“已服用 / 跳过”就隔一段时间再弹一次；单个药品还可以在编辑页打开“像闹钟一样响”",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+                    listOf(0 to "不再提醒", 15 to "15 分钟后", 30 to "30 分钟后", 60 to "1 小时后").forEach { (v, l) ->
+                        FilterChip(selected = nagMin == v, onClick = { nagMin = v; Prefs.setMedNagMinutes(ctx, v) }, label = { Text(l) })
+                    }
+                }
+                if (nagMin > 0) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("最多", style = MaterialTheme.typography.bodyMedium)
+                    listOf(1, 2, 3).forEach { v ->
+                        FilterChip(selected = nagMax == v, onClick = { nagMax = v; Prefs.setMedNagMax(ctx, v) }, label = { Text("$v 次") })
+                    }
+                }
             }
             if (sub == "提醒检查") CardGroup("提醒检查") {
                 val bad = checks.count { !it.ok }

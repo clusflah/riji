@@ -1,6 +1,12 @@
 package app.birthdayreminder.ui.calendar
 
 import app.birthdayreminder.ui.common.TileSheet
+import app.birthdayreminder.ui.common.HomeTabs
+import app.birthdayreminder.ui.common.TgFabLabeled
+import app.birthdayreminder.notify.Reliability
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Close
 import app.birthdayreminder.ui.common.SheetItem
 import app.birthdayreminder.ui.common.SwipeTabs
 import androidx.compose.foundation.horizontalScroll
@@ -191,6 +197,7 @@ fun CalendarScreen(
     onOpenFitnessDate: (String) -> Unit = {},
     onOpenAllergyDate: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
+    onOpenReliability: () -> Unit = onOpenSettings,
     onAiClick: () -> Unit = {},
     onPrivacyEntry: () -> Unit = {},
     onSearch: () -> Unit = {},
@@ -205,6 +212,8 @@ fun CalendarScreen(
     var agendaToToday by remember { mutableIntStateOf(0) }             // 日程里点“今天”：滚回今天
     var collapse by remember { mutableFloatStateOf(0f) }               // 月历收起了多少（像素）
     val fabHide = rememberScrollHideFab()      // 任何列表上下滑动时隐藏“+”
+    val haptic = LocalHapticFeedback.current
+    var preview by remember { mutableStateOf<LocalDate?>(null) }       // 长按月历上的某一天：弹出那天的简要内容
     // 功能开关：关掉的功能在加号菜单、AI 按钮、日历内容里都不出现
     val moduleVer by ModuleStore.version
     val modCtx = LocalContext.current
@@ -241,8 +250,12 @@ fun CalendarScreen(
                     OpenTarget.TAB_STUDY -> { { app.birthdayreminder.ui.study.StudyUi.requestNew(ui.selected) } }
                     else -> null
                 }
+                // 选了具体标签：按钮上写明加什么；“全部”下点了是选择面板，只放“+”
+                val addLabel = HomeTabs.DEFAULT.firstOrNull { it.first == homeTab && homeTab != HomeTabs.ALL }?.second
+                    ?.let { if (it == "用药就医") "药品" else it }
                 if (addAction != null) HideOnScroll(fabHide) {
-                    TgFab(onClick = addAction) { Icon(Icons.Default.Add, contentDescription = "添加") }
+                    if (addLabel != null) TgFabLabeled(addLabel, onClick = addAction)
+                    else TgFab(onClick = addAction) { Icon(Icons.Default.Add, contentDescription = "添加") }
                 }
             }
         }
@@ -262,7 +275,6 @@ fun CalendarScreen(
                 onSettings = onOpenSettings,
                 onTitleHold = onPrivacyEntry,
                 onSearch = onSearch,
-                onAi = null,      // AI 助手在右下角“+”上方
                 agendaMode = agendaMode,
                 onToggleAgenda = { agendaMode = !agendaMode },
                 onAgendaToday = { agendaToToday++ }
@@ -295,7 +307,8 @@ fun CalendarScreen(
                 Box(modifier = Modifier.wrapContentHeight(align = Alignment.Top, unbounded = true)
                     .graphicsLayer { translationY = -fraction * selRow * rowPx }) {
                     // 跟手翻页：左右拖动时当前月和相邻的月一起跟着手指走，过半或快速一甩就翻过去
-                    MonthPager(ui, rowH * rows, onShowMonth = vm::showMonth, onSelect = vm::select)
+                    MonthPager(ui, rowH * rows, onShowMonth = vm::showMonth, onSelect = vm::select,
+                        onLongPress = { d -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.select(d); preview = d })
                 }
             }
             if (fraction < 0.5f) DotLegend(ui.days)
@@ -304,10 +317,14 @@ fun CalendarScreen(
             val dismissHint = { hint = false; Prefs.setSwipeHintShown(ctx) }
             LaunchedEffect(collapse > 0f) { if (collapse > 0f && hint) dismissHint() }
             if (hint && fraction < 0.5f) SwipeHint(dismissHint)
-            DayHeader(ui)
             // 数据融进日程区域：“全部”是这一天的时间轴，其它标签直接显示那一项的全部数据
-            val dataTabs = remember(moduleVer) { HOME_TABS.filter { (t, _) -> t < 0 || moduleOn(ctx, t) } }
+            val tabVer by HomeTabs.version
+            val dataTabs = remember(moduleVer, tabVer) { HomeTabs.visible(ctx) }
             val tabIndex = dataTabs.indexOfFirst { it.first == homeTab }.let { if (it < 0) 0 else it }
+            // 在设置里把正在看的标签藏掉了：回到“全部”，“+”也跟着变
+            LaunchedEffect(dataTabs) { if (dataTabs.none { it.first == homeTab }) homeTab = HomeTabs.ALL }
+            // 日期抬头只在跟日期有关的标签（全部、生理期）显示，其它标签显示的是全部数据，收起来给列表腾地方
+            AnimatedVisibility(visible = dataTabs.getOrNull(tabIndex)?.first in HomeTabs.DATED) { DayHeader(ui) }
             // 标签和内容同步，内容区域可以左右滑动切换（月历区域左右滑动仍然是翻月）
             SwipeTabs(
                 titles = dataTabs.map { it.second },
@@ -340,13 +357,49 @@ fun CalendarScreen(
                         onEditAlarm = onEditAlarm,
                         // 学习记录：切到“学习”标签并打开那条的编辑框
                         onEditStudy = { id -> homeTab = OpenTarget.TAB_STUDY; app.birthdayreminder.ui.study.StudyUi.requestEdit(id) },
-                        onSeeAll = { agendaMode = true }      // 查看全部：切到日程视图
+                        onOpenMed = { homeTab = OpenTarget.TAB_MED },
+                        onSeeAll = { agendaMode = true },      // 查看全部：切到日程视图
+                        onNewDiary = if (on(Modules.DIARY)) { { onNewDiary(ui.selected) } } else null,
+                        onNewReminder = if (on(Modules.REMINDER)) { { onNewReminder(ui.selected) } } else null,
+                        banner = { ReliabilityBanner(onOpenReliability) }
                     )
                 }
             }
             }
         }
     }
+
+    // 长按某一天：等选中的日子切过去、数据算好了再弹出来
+    preview?.let { d ->
+        if (ui.selected == d) DayPreviewSheet(ui, onDismiss = { preview = null }) { e ->
+            preview = null
+            val id = e.ref?.substringAfter(':') ?: ""
+            when (e.kind) {
+                "birthday" -> onEditBirthday(id); "reminder" -> onEditReminder(id); "diary" -> onEditDiary(id)
+                "alarm" -> onEditAlarm(id); "fitness" -> onNewFitness(d); "allergy" -> onNewAllergy(d)
+                "study" -> { homeTab = OpenTarget.TAB_STUDY; app.birthdayreminder.ui.study.StudyUi.requestEdit(id) }
+                "med" -> homeTab = OpenTarget.TAB_MED
+            }
+        }
+    }
+
+    // 第一次打开、而且有会让提醒不准时的设置：带用户去“提醒检查”看一遍（只弹一次，之后靠首页的提示条）
+    // 用户点了按钮才算看过（一出现就记的话，页面重建时弹窗没了，以后也不会再弹）
+    var intro by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (!Prefs.reliabilityIntroShown(ctx)) {
+            intro = Reliability.check(ctx).any { !it.ok }
+            if (!intro) Prefs.setReliabilityIntroShown(ctx)      // 都没问题就不用弹了
+        }
+    }
+    val closeIntro = { intro = false; Prefs.setReliabilityIntroShown(ctx) }
+    if (intro) androidx.compose.material3.AlertDialog(
+        onDismissRequest = closeIntro,
+        title = { Text("让提醒准时弹出来") },
+        text = { Text("很多手机默认会在后台限制 App，生日、提醒、吃药可能晚弹甚至不弹。花一分钟到“提醒检查”里把标红的几项打开。") },
+        confirmButton = { TextButton(onClick = { closeIntro(); onOpenReliability() }) { Text("去检查") } },
+        dismissButton = { TextButton(onClick = closeIntro) { Text("以后再说") } }
+    )
 
     // “+”添加面板：白底、浅灰格子；关掉的功能不显示
     if (showAdd) {
@@ -381,16 +434,89 @@ fun CalendarScreen(
     }
 }
 
-/** 日程区域的标签：全部（时间轴）+“数据”里的各项，顺序：全部、日记、提醒、生日，其它在后 */
-private val HOME_TABS = listOf(-1 to "全部", OpenTarget.TAB_DIARY to "日记", OpenTarget.TAB_REMINDER to "提醒",
-    OpenTarget.TAB_FITNESS to "健身", OpenTarget.TAB_STUDY to "学习", OpenTarget.TAB_ALARM to "闹钟", OpenTarget.TAB_MED to "用药就医", OpenTarget.TAB_CYCLE to "生理期",
-    OpenTarget.TAB_ALLERGY to "过敏", OpenTarget.TAB_PHRASE to "常用语", OpenTarget.TAB_BIRTHDAY to "生日")
-
-/** 某个标签对应的功能是否开着（无过敏记录版不显示过敏） */
-private fun moduleOn(ctx: android.content.Context, tab: Int): Boolean {
-    val all = Modules.tabs(ModuleStore.disabled(ctx), app.birthdayreminder.Features.allergy)
-    return tab in all
+/**
+ * 首页提示条：有会让提醒不准时的设置没处理时显示，点进“提醒检查”。
+ * 点 × 记下当时有问题的是哪几项，之后又出了新问题才再显示。回到首页时重新检查一次（可能刚从系统设置改完回来）。
+ */
+@Composable
+private fun ReliabilityBanner(onOpen: () -> Unit) {
+    val ctx = LocalContext.current
+    var tick by remember { mutableIntStateOf(0) }
+    val owner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(owner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) tick++ }
+        owner.lifecycle.addObserver(obs)
+        onDispose { owner.lifecycle.removeObserver(obs) }
+    }
+    val bad = remember(tick) { Reliability.check(ctx).filter { !it.ok } }
+    val sig = bad.map { it.key }.sorted().joinToString(",")
+    var dismissed by remember { mutableStateOf(Prefs.reliabilityDismissed(ctx)) }
+    if (bad.isEmpty() || sig == dismissed) return
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(12.dp))
+            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)).clickable(onClick = onOpen)
+            .padding(start = 14.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("提醒可能不准时：有 ${bad.size} 项设置需要处理 ›", fontSize = 14.sp, color = MaterialTheme.colorScheme.onErrorContainer,
+            modifier = Modifier.weight(1f))
+        IconButton(onClick = { Prefs.setReliabilityDismissed(ctx, sig); dismissed = sig }, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Default.Close, contentDescription = "不再提示", tint = MaterialTheme.colorScheme.onErrorContainer, modifier = Modifier.size(18.dp))
+        }
+    }
 }
+
+/** 长按月历上某一天弹出的简要内容：这天的时间轴，点一条打开它 */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DayPreviewSheet(ui: CalendarUiState, onDismiss: () -> Unit, onOpen: (DayTimeline.Entry) -> Unit) {
+    val d = ui.selected
+    val entries = remember(ui) { dayEntries(ui) }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+            Text("${d.monthValue}月${d.dayOfMonth}日 " + WEEK_NAMES[d.dayOfWeek.value - 1], fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 20.dp))
+            Text(listOfNotNull(ui.selectedLunar.replace("农历 ", "农历"), ui.selectedFestival, ui.selectedHoliday).joinToString(" · "),
+                fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
+            if (entries.isEmpty()) Text("这天没有记录", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp))
+            entries.forEach { e ->
+                Row(modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(e.time ?: "全天", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.width(48.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        EventCard(e.kind, e.title, subtitle = e.subtitle, horizontalMargin = 0.dp, onClick = { onOpen(e) })
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 选中这天的时间轴条目：全天的在上，有时间的按时间排（首页“全部”和长按预览共用） */
+private fun dayEntries(ui: CalendarUiState): List<DayTimeline.Entry> = DayTimeline.order(buildList {
+    ui.birthdays.forEach { add(DayTimeline.Entry(null, "birthday", it.birthday.name + (it.age?.let { a -> " ${a}岁生日" } ?: "的生日"), it.desc, "b:" + it.birthday.id)) }
+    ui.fitness?.let { add(DayTimeline.Entry(null, "fitness", ui.fitnessSummary ?: "健身记录", it.note.ifBlank { null }, "f:")) }
+    ui.allergy?.let { add(DayTimeline.Entry(null, "allergy", ui.allergySummary ?: "过敏记录", it.note.ifBlank { null }, "g:")) }
+    ui.reminders.forEach { add(DayTimeline.Entry(it.reminder.time, "reminder", it.reminder.title, it.repeatLabel, "r:" + it.reminder.id)) }
+    ui.alarms.forEach { add(DayTimeline.Entry(it.time, "alarm", it.label.ifBlank { "闹钟" }, AlarmTriggers.repeatText(it), "a:" + it.id)) }
+    // 吃药：药名 + 用量 · 吃了没有（未到时间 / 待服 / 已服用 / 漏服），点了切到“用药就医”标签去记
+    ui.doses.forEach { s ->
+        add(DayTimeline.Entry(s.dose.time, "med", s.dose.medName,
+            app.birthdayreminder.domain.MedLogic.fmt(s.dose.amount) + ui.medUnits[s.dose.medId].orEmpty() + " · " + app.birthdayreminder.domain.MedLogic.statusText(s.status), "m:" + s.dose.key))
+    }
+    ui.diaries.forEach { item ->
+        // 日记按写的时间；如果是后来补写的（写的那天不是日记那天），就放在全天
+        val t = java.time.Instant.ofEpochMilli(item.entity.updatedAt).atZone(java.time.ZoneId.systemDefault())
+        val time = if (t.toLocalDate().toString() == item.entity.date) "%02d:%02d".format(t.hour, t.minute) else null
+        val tags = listOfNotNull(if (item.hasImage) "有图片" else null, if (item.hasLocation) "有位置" else null).joinToString(" · ")
+        add(DayTimeline.Entry(time, "diary", item.snippet.ifBlank { "日记" }, tags.ifEmpty { null }, "d:" + item.entity.id))
+    }
+    // 学习：填了开始时间的按时间排，没填的放全天
+    ui.studies.forEach { s ->
+        add(DayTimeline.Entry(s.time.ifBlank { null }, "study", StudyLogic.summary(StudyLogic.itemsFromJson(s.items)).ifBlank { "学习" },
+            listOf(StudyLogic.fmtMinutes(s.minutes), s.note).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }, "s:" + s.id))
+    }
+})
 
 
 @Composable
@@ -413,7 +539,6 @@ private fun MonthHeader(
     title: String, onPrev: () -> Unit, onNext: () -> Unit, onToday: () -> Unit, onList: () -> Unit, onSettings: () -> Unit,
     onTitleHold: () -> Unit,
     onSearch: () -> Unit,
-    onAi: (() -> Unit)? = null,
     agendaMode: Boolean = false,
     onToggleAgenda: () -> Unit = {},
     onAgendaToday: () -> Unit = {}
@@ -451,24 +576,18 @@ private fun MonthHeader(
                     }
                 }
             )
-            IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, contentDescription = "搜索", tint = iconTint) }
+            // “‹ 今天 ›”并进标题这一行（以前单独占一行），省下来的高度给下面的日程；日程模式只有“今天”
+            if (!agendaMode) IconButton(onClick = onPrev, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.ChevronLeft, contentDescription = "上个月", tint = iconTint, modifier = Modifier.size(20.dp))
+            }
+            TextButton(onClick = if (agendaMode) onAgendaToday else onToday, contentPadding = PaddingValues(horizontal = 6.dp),
+                modifier = Modifier.defaultMinSize(minWidth = 40.dp)) { Text("今天", fontWeight = FontWeight.Medium) }
+            if (!agendaMode) IconButton(onClick = onNext, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Default.ChevronRight, contentDescription = "下个月", tint = iconTint, modifier = Modifier.size(20.dp))
+            }
+            IconButton(onClick = onSearch, modifier = Modifier.size(40.dp)) { Icon(Icons.Outlined.Search, contentDescription = "搜索", tint = iconTint) }
             IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)) {
                 Icon(Icons.Outlined.Settings, contentDescription = "设置", tint = iconTint.copy(alpha = 0.5f), modifier = Modifier.size(20.dp))
-            }
-        }
-        // 第二行：中间“‹ 今天 ›”（日程模式只有“今天”，翻远了点一下回到今天），最右边是 AI 助手
-        Box(modifier = Modifier.fillMaxWidth().height(36.dp)) {
-            Row(modifier = Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
-                if (agendaMode) {
-                    TextButton(onClick = onAgendaToday, contentPadding = PaddingValues(horizontal = 16.dp)) { Text("今天", fontWeight = FontWeight.Medium) }
-                } else {
-                    IconButton(onClick = onPrev) { Icon(Icons.Default.ChevronLeft, contentDescription = "上个月", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                    TextButton(onClick = onToday, contentPadding = PaddingValues(horizontal = 16.dp)) { Text("今天", fontWeight = FontWeight.Medium) }
-                    IconButton(onClick = onNext) { Icon(Icons.Default.ChevronRight, contentDescription = "下个月", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-            }
-            if (onAi != null) IconButton(onClick = onAi, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp)) {
-                Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI 助手", tint = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -536,13 +655,13 @@ private fun WeekdayRow(weekStart: Int) {
 }
 
 @Composable
-private fun MonthGrid(days: List<CalendarDayUi>, selected: LocalDate, showLunar: Boolean, onSelect: (LocalDate) -> Unit) {
+private fun MonthGrid(days: List<CalendarDayUi>, selected: LocalDate, showLunar: Boolean, onSelect: (LocalDate) -> Unit, onLongPress: (LocalDate) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         days.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { day ->
                     Box(modifier = Modifier.weight(1f)) {
-                        DayCell(day, day.date == selected, showLunar) { onSelect(day.date) }
+                        DayCell(day, day.date == selected, showLunar, onLongPress = { onLongPress(day.date) }) { onSelect(day.date) }
                     }
                 }
             }
@@ -551,7 +670,8 @@ private fun MonthGrid(days: List<CalendarDayUi>, selected: LocalDate, showLunar:
 }
 
 @Composable
-private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean, onClick: () -> Unit) {
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean, onLongPress: () -> Unit, onClick: () -> Unit) {
     val primary = MaterialTheme.colorScheme.primary
     val dim = if (day.inCurrentMonth) 1f else 0.32f
     val numColor = when {
@@ -572,7 +692,8 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
                 }
             )
             // 不用系统波纹：滑动翻月时波纹可能残留在格子上（之前看到的灰块），选中高亮就是点按反馈
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClick)
+            // 长按：弹出这天的简要内容
+            .combinedClickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onLongClick = onLongPress, onClick = onClick)
             .clearAndSetSemantics {
                 contentDescription = cellDescription(day, showLunar)
                 if (isSelected) selected = true
@@ -609,21 +730,25 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
             )
         }
         Spacer(Modifier.height(1.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.height(4.dp)) {
-            // 小圆点：提醒、日记合成一个紫点；生日粉橙、经期玫红、易孕期绿
-            if (day.hasBirthday) Dot(LiColors.birthday)
-            if (day.hasReminder) Dot(LiColors.reminder)
-            if (day.hasDiary) Dot(LiColors.diary)
+        // 小圆点：每一类只用一种颜色；预测出来的（预计经期、易孕期）画空心圈，不再用深浅区分。
+        // 最多画 3 个，再多画一个小“+”，挤在一起分不清
+        val dots = buildList {
+            if (day.hasBirthday) add(LiColors.birthday to false)
+            if (day.hasReminder) add(LiColors.reminder to false)
+            if (day.hasDiary) add(LiColors.diary to false)
             // 学习：黑色（深色模式下黑点看不见，用正文色，也就是白色）
-            if (day.hasStudy) Dot(MaterialTheme.colorScheme.onSurface)
-            // 生理期：经期红点、预测经期浅红、排卵日 / 易孕期绿点
+            if (day.hasStudy) add(MaterialTheme.colorScheme.onSurface to false)
             when (day.cycleMark) {
-                CycleLogic.Mark.PERIOD -> Dot(LiColors.period)
-                CycleLogic.Mark.PREDICTED -> Dot(LiColors.period.copy(alpha = 0.35f))
-                CycleLogic.Mark.OVULATION -> Dot(LiColors.fertile)
-                CycleLogic.Mark.FERTILE -> Dot(LiColors.fertile.copy(alpha = 0.35f))
+                CycleLogic.Mark.PERIOD -> add(LiColors.period to false)
+                CycleLogic.Mark.PREDICTED -> add(LiColors.period to true)
+                CycleLogic.Mark.OVULATION -> add(LiColors.fertile to false)
+                CycleLogic.Mark.FERTILE -> add(LiColors.fertile to true)
                 CycleLogic.Mark.NONE -> {}
             }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically, modifier = Modifier.height(5.dp)) {
+            dots.take(3).forEach { (c, hollow) -> Dot(c, hollow) }
+            if (dots.size > 3) MoreMark(MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -633,7 +758,7 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
  * 外面改了月份（按钮、“今天”、选中别的月的日期）就滑过去。相邻两个月的格子 ViewModel 已经备好，拖动时内容完整。
  */
 @Composable
-private fun MonthPager(ui: CalendarUiState, height: androidx.compose.ui.unit.Dp, onShowMonth: (YearMonth) -> Unit, onSelect: (LocalDate) -> Unit) {
+private fun MonthPager(ui: CalendarUiState, height: androidx.compose.ui.unit.Dp, onShowMonth: (YearMonth) -> Unit, onSelect: (LocalDate) -> Unit, onLongPress: (LocalDate) -> Unit) {
     val center = 1200
     val base = remember { ui.yearMonth }
     fun pageOf(m: YearMonth) = center + java.time.temporal.ChronoUnit.MONTHS.between(base.atDay(1), m.atDay(1)).toInt()
@@ -660,7 +785,7 @@ private fun MonthPager(ui: CalendarUiState, height: androidx.compose.ui.unit.Dp,
             ui.yearMonth.plusMonths(1) -> ui.nextDays
             else -> null
         }
-        if (days != null && days.isNotEmpty()) MonthGrid(days, ui.selected, ui.showLunar, onSelect)
+        if (days != null && days.isNotEmpty()) MonthGrid(days, ui.selected, ui.showLunar, onSelect, onLongPress)
         else Spacer(Modifier.fillMaxWidth().height(height))       // 很远的月份一闪而过，先占个位
     }
 }
@@ -871,21 +996,38 @@ private fun DotLegend(days: List<CalendarDayUi>) {
         if (days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.PERIOD || it.cycleMark == CycleLogic.Mark.PREDICTED) }) add(LiColors.period to "经期")
         if (days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.FERTILE || it.cycleMark == CycleLogic.Mark.OVULATION) }) add(LiColors.fertile to "易孕期")
     }
+    // 有预测出来的（空心圈）就加一项说明
+    val predicted = days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.PREDICTED || it.cycleMark == CycleLogic.Mark.FERTILE) }
     if (items.isEmpty()) return
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clearAndSetSemantics { },
-        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp).clearAndSetSemantics { },
+        horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items.forEach { (c, t) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(modifier = Modifier.size(7.dp).clip(CircleShape).background(c))
                 Text(" $t", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        if (predicted) Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(7.dp).border(1.dp, MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
+            Text(" 预测", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }
 
 @Composable
-private fun Dot(color: Color) {
-    Box(modifier = Modifier.size(4.dp).clip(CircleShape).background(color))
+private fun Dot(color: Color, hollow: Boolean = false) {
+    if (hollow) Box(modifier = Modifier.size(5.dp).border(1.dp, color, CircleShape))
+    else Box(modifier = Modifier.size(5.dp).clip(CircleShape).background(color))
+}
+
+/** 一天里超过 3 类记录：最后画一个小“+” */
+@Composable
+private fun MoreMark(color: Color) {
+    Box(modifier = Modifier.size(5.dp).drawBehind {
+        val w = 1.dp.toPx()
+        drawLine(color, Offset(0f, size.height / 2), Offset(size.width, size.height / 2), strokeWidth = w)
+        drawLine(color, Offset(size.width / 2, 0f), Offset(size.width / 2, size.height), strokeWidth = w)
+    })
 }
 
 @Composable
@@ -902,35 +1044,29 @@ private fun DayPanel(
     onSelectDate: (LocalDate) -> Unit,
     onEditAlarm: (String) -> Unit = {},
     onEditStudy: (String) -> Unit = {},
-    onSeeAll: () -> Unit = {}
+    onOpenMed: () -> Unit = {},
+    onSeeAll: () -> Unit = {},
+    onNewDiary: (() -> Unit)? = null,
+    onNewReminder: (() -> Unit)? = null,
+    banner: @Composable () -> Unit = {}
 ) {
     val d = ui.selected
     val today = LocalDate.now()
 
     LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp)) {
+        item(key = "banner", contentType = "banner") { banner() }
         // ---------------- 时间轴：全天的在上，有时间的按时间排 ----------------
-        val entries = DayTimeline.order(buildList {
-            ui.birthdays.forEach { add(DayTimeline.Entry(null, "birthday", it.birthday.name + (it.age?.let { a -> " ${a}岁生日" } ?: "的生日"), it.desc, "b:" + it.birthday.id)) }
-            ui.fitness?.let { add(DayTimeline.Entry(null, "fitness", ui.fitnessSummary ?: "健身记录", it.note.ifBlank { null }, "f:")) }
-            ui.allergy?.let { add(DayTimeline.Entry(null, "allergy", ui.allergySummary ?: "过敏记录", it.note.ifBlank { null }, "g:")) }
-            ui.reminders.forEach { add(DayTimeline.Entry(it.reminder.time, "reminder", it.reminder.title, it.repeatLabel, "r:" + it.reminder.id)) }
-            ui.alarms.forEach { add(DayTimeline.Entry(it.time, "alarm", it.label.ifBlank { "闹钟" }, AlarmTriggers.repeatText(it), "a:" + it.id)) }
-            ui.diaries.forEach { item ->
-                // 日记按写的时间；如果是后来补写的（写的那天不是日记那天），就放在全天
-                val t = java.time.Instant.ofEpochMilli(item.entity.updatedAt).atZone(java.time.ZoneId.systemDefault())
-                val time = if (t.toLocalDate().toString() == item.entity.date) "%02d:%02d".format(t.hour, t.minute) else null
-                val tags = listOfNotNull(if (item.hasImage) "有图片" else null, if (item.hasLocation) "有位置" else null).joinToString(" · ")
-                add(DayTimeline.Entry(time, "diary", item.snippet.ifBlank { "日记" }, tags.ifEmpty { null }, "d:" + item.entity.id))
-            }
-            // 学习：填了开始时间的按时间排，没填的放全天
-            ui.studies.forEach { s ->
-                add(DayTimeline.Entry(s.time.ifBlank { null }, "study", StudyLogic.summary(StudyLogic.itemsFromJson(s.items)).ifBlank { "学习" },
-                    listOf(StudyLogic.fmtMinutes(s.minutes), s.note).filter { it.isNotBlank() }.joinToString(" · ").ifEmpty { null }, "s:" + s.id))
-            }
-        })
+        val entries = dayEntries(ui)
         if (entries.isEmpty()) {
             item(key = "empty", contentType = "hint") {
-                Text("暂无安排", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+                // 空着的时候顺手给两个入口，不用再去找“+”
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(if (d == today) "今天还没有安排" else "这天没有安排", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f))
+                    onNewDiary?.let { f -> androidx.compose.material3.AssistChip(onClick = f, label = { Text("写日记") }) }
+                    onNewReminder?.let { f -> androidx.compose.material3.AssistChip(onClick = f, label = { Text("加提醒") }) }
+                }
             }
         }
         val firstTimed = entries.indexOfFirst { it.time != null }
@@ -949,6 +1085,7 @@ private fun DayPanel(
                         when (e.kind) {
                             "birthday" -> onEditBirthday(id); "reminder" -> onEditReminder(id); "diary" -> onEditDiary(id)
                             "alarm" -> onEditAlarm(id); "fitness" -> onEditFitness(); "allergy" -> onEditAllergy(); "study" -> onEditStudy(id)
+                            "med" -> onOpenMed()
                         }
                     })
             }

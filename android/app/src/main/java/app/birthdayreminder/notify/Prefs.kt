@@ -176,6 +176,34 @@ object Prefs {
     fun highRefresh(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean("highRefresh", true)
     fun setHighRefresh(ctx: Context, v: Boolean) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putBoolean("highRefresh", v).apply()
 
+    // ---------------- 用药提醒 ----------------
+    /** 吃药通知没处理时，隔几分钟再提醒（0 = 不再提醒），默认 30 分钟 */
+    fun medNagMinutes(ctx: Context) = sp(ctx).getInt("medNagMin", 30)
+    fun setMedNagMinutes(ctx: Context, v: Int) = sp(ctx).edit().putInt("medNagMin", v.coerceIn(0, 240)).apply()
+    /** 最多再提醒几次，默认 2 次 */
+    fun medNagMax(ctx: Context) = sp(ctx).getInt("medNagMax", 2)
+    fun setMedNagMax(ctx: Context, v: Int) = sp(ctx).edit().putInt("medNagMax", v.coerceIn(1, 5)).apply()
+    /** 设成“像闹钟一样响”的药（药品 id） */
+    fun medRingIds(ctx: Context): Set<String> = sp(ctx).getStringSet("medRing", null)?.toSet() ?: emptySet()
+    fun setMedRing(ctx: Context, medId: String, on: Boolean) {
+        val s = medRingIds(ctx)
+        sp(ctx).edit().putStringSet("medRing", if (on) s + medId else s - medId).apply()
+    }
+
+    // ---------------- 首页 ----------------
+    /** 首页标签的顺序和隐藏（标签编号，见 OpenTarget）；空表示用默认顺序、全部显示 */
+    fun homeTabOrder(ctx: Context): List<Int> = sp(ctx).getString("homeTabOrder", "").orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }
+    fun homeTabHidden(ctx: Context): Set<Int> = sp(ctx).getString("homeTabHidden", "").orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }.toSet()
+    fun setHomeTabs(ctx: Context, order: List<Int>, hidden: Set<Int>) =
+        sp(ctx).edit().putString("homeTabOrder", order.joinToString(",")).putString("homeTabHidden", hidden.joinToString(",")).apply()
+
+    /** 第一次打开时的“提醒检查”引导：只弹一次 */
+    fun reliabilityIntroShown(ctx: Context) = sp(ctx).getBoolean("relIntro", false)
+    fun setReliabilityIntroShown(ctx: Context) = sp(ctx).edit().putBoolean("relIntro", true).apply()
+    /** 首页“提醒可能不准时”提示被关掉时，当时有问题的是哪几项；出了新问题再显示 */
+    fun reliabilityDismissed(ctx: Context) = sp(ctx).getString("relDismissed", "") ?: ""
+    fun setReliabilityDismissed(ctx: Context, v: String) = sp(ctx).edit().putString("relDismissed", v).apply()
+
     /** 首页“上滑查看日程”提示：只显示一次 */
     fun swipeHintShown(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).getBoolean("swipeHintShown", false)
     fun setSwipeHintShown(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE).edit().putBoolean("swipeHintShown", true).apply()

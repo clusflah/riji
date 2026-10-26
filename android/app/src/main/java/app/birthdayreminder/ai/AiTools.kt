@@ -122,10 +122,15 @@ object AiTools {
 
     fun systemPrompt(today: LocalDate): String {
         val week = "日一二三四五六"[today.dayOfWeek.value % 7]
+        // 把“本周 / 本月”的起止日期直接写给它：以前让它自己推，周日还说“这周才刚开始（周一、周二两天）”
+        val mon = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        val first = today.withDayOfMonth(1)
         return "你是\"日迹\"这个 App 里的助手，可以帮用户记录生日、提醒事项、日记，也可以设置闹钟" +
             "。今天是${today.year}年${today.monthValue}月${today.dayOfMonth}日 周$week" +
-            "。需要用工具时直接调用，不用先询问确认；调用前请把用户说的相对日期换算成 YYYY-MM-DD 的绝对日期。" +
-            "除非用户要求详细说明，否则回复保持简短，用中文回答。"
+            "。本周是 $mon 到 ${mon.plusDays(6)}（周一到周日），今天是本周第 ${today.dayOfWeek.value} 天；" +
+            "本月是 $first 到 ${first.withDayOfMonth(first.lengthOfMonth())}，今天是第 ${today.dayOfMonth} 天。" +
+            "需要用工具时直接调用，不用先询问确认，调用前也不用说明要做什么；调用前请把用户说的相对日期换算成 YYYY-MM-DD 的绝对日期。" +
+            "除非用户要求详细说明，否则回复保持简短。始终用简体中文回答。"
     }
 
     /** 对话里显示的“AI 做了什么”那一行 */

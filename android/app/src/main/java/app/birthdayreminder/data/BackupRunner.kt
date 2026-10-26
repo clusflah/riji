@@ -63,7 +63,7 @@ object BackupRunner {
     /** 偏好设置文件（AI / 语音 / 高德的 Key、功能开关、生理期设置等都在这里） */
     private const val PREFS_FILE = "li_native_prefs"
     /** 跟这台手机绑定的设置不备份（自动备份文件夹的授权换手机就失效了） */
-    private val SKIP_PREFS = listOf("autoBackupDir", "lastAutoBackup", "autoBackupError")
+    private val SKIP_PREFS = listOf("autoBackupDir", "lastAutoBackup", "autoBackupError", "relIntro", "relDismissed")   // 提醒检查的引导和提示只跟这台手机有关
 
     /** 写备份压缩包：backup.json + 图片、附件、自定义铃声文件 */
     suspend fun writeArchive(ctx: Context, out: OutputStream) = withContext(Dispatchers.IO) {

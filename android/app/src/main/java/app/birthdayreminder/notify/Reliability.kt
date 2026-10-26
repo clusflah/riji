@@ -31,8 +31,8 @@ object Reliability {
         val app = ctx.applicationContext
         val settings = SettingsStore.get(app)
         val nm = app.getSystemService(NotificationManager::class.java)
-        // “生日与提醒”和“用药提醒”两类通知，哪个被单独关掉都算
-        val channelOn = Build.VERSION.SDK_INT < 26 || listOf(NotificationHelper.CHANNEL_ID, MedNotify.CHANNEL).all {
+        // “生日与提醒”“用药提醒”“用药提醒（响铃）”几类通知，哪个被单独关掉都算（还没建的渠道不算）
+        val channelOn = Build.VERSION.SDK_INT < 26 || listOf(NotificationHelper.CHANNEL_ID, MedNotify.CHANNEL, MedNotify.CHANNEL_RING).all {
             (nm.getNotificationChannel(it)?.importance ?: NotificationManager.IMPORTANCE_DEFAULT) != NotificationManager.IMPORTANCE_NONE
         }
         val notifOk = NotificationManagerCompat.from(app).areNotificationsEnabled() && channelOn

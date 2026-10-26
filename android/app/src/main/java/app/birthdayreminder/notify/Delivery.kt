@@ -121,6 +121,11 @@ object Delivery {
         prefs(app).edit().putString("s_$code", "$at|" + intent.toUri(Intent.URI_INTENT_SCHEME)).apply()
     }
 
+    /** 取消了的稍后提醒：把记录也删掉，免得开机后又排回来 */
+    fun forgetSnooze(ctx: Context, code: Int) {
+        prefs(ctx).edit().remove("s_$code").apply()
+    }
+
     /** 开机后把还没响的稍后提醒重新排上；关机期间错过的（6 小时以内）马上补一次 */
     fun rearmSnoozes(ctx: Context) {
         val app = ctx.applicationContext

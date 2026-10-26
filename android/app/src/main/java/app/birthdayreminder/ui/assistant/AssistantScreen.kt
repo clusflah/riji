@@ -129,7 +129,8 @@ fun AssistantScreen(onBack: () -> Unit, vm: AssistantViewModel = viewModel()) {
                         Bubble(m.display ?: m.text, mine = true)
                     } else {
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            if (m.text.isNotBlank()) {
+                            // 调用工具时顺带说的开场白（“我先读一下数据”，有时还是英文）不显示：下面那行“🔍 读取……”已经说明了在做什么
+                            if (m.text.isNotBlank() && m.calls.isEmpty()) {
                                 // AI 回复旁边的 🔊：点一下用 Azure 语音朗读，正在念时变成 ⏹，再点停止
                                 val key = vm.ttsKey(vm.chat.indexOf(m))
                                 Row(verticalAlignment = Alignment.Bottom) {
@@ -212,7 +213,9 @@ private fun Bubble(text: String, mine: Boolean) {
             shape = RoundedCornerShape(14.dp),
             color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         ) {
-            Text(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+            // AI 的回复常带 Markdown（**加粗**、列表、表格）：按格式显示，不然星号原样露出来；自己发的按原文
+            if (mine) Text(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
+            else app.birthdayreminder.ui.diary.MarkdownText(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
         }
     }
 }

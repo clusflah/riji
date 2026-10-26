@@ -50,6 +50,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.Modifier
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.platform.LocalContext
@@ -236,6 +238,7 @@ fun DataTabContent(
             BirthdayRow(it, n?.first, n?.second)
         }.sortedBy { it.days ?: Int.MAX_VALUE }
     }
+    var showDone by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     // 待办：没做完的在前（按标题），做完的在后；有日期的提醒按下一次日期
     val todos = remember(reminders) {
         reminders.filter { Occurrence.isTodo(it) }.sortedWith(compareBy({ Occurrence.todoDone(it) }, { it.title }))
@@ -285,11 +288,20 @@ fun DataTabContent(
             else -> LazyColumn(contentPadding = PaddingValues(bottom = 100.dp)) {
                 if (todos.isEmpty() && rRows.isEmpty()) item { EmptyHint("还没有提醒，点右下角“+”添加；不需要日期的事可以选“无时间待办”") }
                 if (todos.isNotEmpty()) item { SectionTitle("待办") }
-                items(todos, key = { "t" + it.id }) { r ->
+                // 做完的收成一行“已完成（N）”，点开再看：不然划了线的和没做的一样大，挤在一起
+                val openTodos = todos.filter { !Occurrence.todoDone(it) }
+                val doneTodos = todos.filter { Occurrence.todoDone(it) }
+                if (todos.isNotEmpty() && openTodos.isEmpty()) item { EmptyHint("待办都做完了") }
+                items(openTodos + (if (showDone) doneTodos else emptyList()), key = { "t" + it.id }) { r ->
                     val done = Occurrence.todoDone(r)
                     EventCard("todo", r.title, subtitle = r.note.ifBlank { null }, strike = done,
                         leading = { Checkbox(checked = done, onCheckedChange = { rvm.toggleTodo(r) }, modifier = Modifier.size(36.dp)) },
                         onClick = { onEditReminder(r.id) })
+                }
+                if (doneTodos.isNotEmpty()) item(key = "doneToggle") {
+                    TextButton(onClick = { showDone = !showDone }, modifier = Modifier.padding(start = 8.dp)) {
+                        Text(if (showDone) "收起已完成" else "已完成（${doneTodos.size}）›")
+                    }
                 }
                 if (todos.isNotEmpty() && rRows.isNotEmpty()) item { SectionTitle("已安排") }
                 items(rRows, key = { it.reminder.id }) { row ->

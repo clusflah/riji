@@ -2,6 +2,7 @@ package app.birthdayreminder.notify
 
 import android.Manifest
 import android.app.AlarmManager
+import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,6 +10,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioManager
+import android.media.RingtoneManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -39,6 +43,13 @@ object MedActions {
      */
     private suspend fun resched(app: Context) = MedScheduler.rescheduleSafe(app)
 
+    /** 在 App 里记了这一次：通知栏上还挂着的那条收掉，没处理的再提醒也取消 */
+    private fun settle(app: Context, medId: String, date: String, time: String) {
+        val nid = MedScheduler.notifId(MedLogic.doseKey(medId, date, time))
+        MedNag.cancel(app, nid)
+        app.getSystemService(NotificationManager::class.java).cancel(nid)
+    }
+
     suspend fun take(ctx: Context, medId: String, date: String, time: String, amount: Double, scheduled: Boolean = true) {
         val app = ctx.applicationContext
         val dao = AppDatabase.get(app).medDao()
@@ -46,6 +57,7 @@ object MedActions {
         val id = if (scheduled) MedLogic.doseKey(medId, date, time) else UUID.randomUUID().toString()
         val old = if (scheduled) dao.getLogs().firstOrNull { it.id == id } else null
         dao.upsertLog(MedLog(id, medId, med.name, date, time, amount, "taken", System.currentTimeMillis(), scheduled))
+        if (scheduled) settle(app, medId, date, time)
         // 之前没吃过（或之前是跳过）才扣库存，避免重复扣
         if (old?.status != "taken") {
             val after = med.copy(stock = MedLogic.afterTake(med.stock, amount), updatedAt = System.currentTimeMillis())
@@ -64,6 +76,7 @@ object MedActions {
         // 从“已服用”改成“跳过”：把扣掉的库存加回来
         if (old?.status == "taken" && med.stock != null) dao.upsertMed(med.copy(stock = med.stock + old.amount))
         dao.upsertLog(MedLog(id, medId, med.name, date, time, amount, "skipped", System.currentTimeMillis(), true))
+        settle(app, medId, date, time)
         resched(app)
     }
 
@@ -75,6 +88,7 @@ object MedActions {
         val id = MedLogic.doseKey(medId, date, time)
         val old = dao.getLogs().firstOrNull { it.id == id }
         dao.upsertLog(MedLog(id, medId, med.name, date, time, amount, "taken", actionAt, true))
+        settle(app, medId, date, time)
         if (old?.status != "taken") dao.upsertMed(med.copy(stock = MedLogic.afterTake(med.stock, amount)))
         resched(app)
     }
@@ -98,12 +112,23 @@ object MedNotify {
     private const val LOW_BASE = 32000
     private const val EXP_BASE = 33000
 
+    /** 设成“像闹钟一样响”的药走这个渠道：闹钟铃声，一直响到点了按钮或划掉 */
+    const val CHANNEL_RING = "medication_ring"
+
     fun ensureChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
         val nm = ctx.getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) {
             nm.createNotificationChannel(NotificationChannel(CHANNEL, "用药提醒", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "到点吃药、库存不足、药品过期"
+            })
+        }
+        if (nm.getNotificationChannel(CHANNEL_RING) == null) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL_RING, "用药提醒（响铃）", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "设成“像闹钟一样响”的药：用闹钟铃声，一直响到点“已服用 / 跳过”"
+                setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
+                enableVibration(true)
             })
         }
     }
@@ -116,8 +141,8 @@ object MedNotify {
             .putExtra("li_open", "med"),
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-    /** 到点吃药：带“已服用 / 跳过 / 10 分钟后”三个按钮 */
-    fun dose(ctx: Context, notifId: Int, medId: String, name: String, dosage: String, date: String, time: String, amount: Double, unit: String) {
+    /** 到点吃药：带“已服用 / 跳过 / 10 分钟后”三个按钮；round > 0 是没处理之后的第几次再提醒 */
+    fun dose(ctx: Context, notifId: Int, medId: String, name: String, dosage: String, date: String, time: String, amount: Double, unit: String, round: Int = 0) {
         ensureChannel(ctx)
         if (!allowed(ctx)) return
         fun action(act: String, code: Int): PendingIntent {
@@ -126,10 +151,12 @@ object MedNotify {
                 .putExtra("date", date).putExtra("time", time).putExtra("amount", amount).putExtra("unit", unit)
             return PendingIntent.getBroadcast(ctx, notifId * 4 + code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         }
-        val n = NotificationCompat.Builder(ctx, CHANNEL)
+        val ring = medId in Prefs.medRingIds(ctx)
+        val head = if (round > 0) "💊 还没吃药" else "💊 该吃药了"
+        val n = NotificationCompat.Builder(ctx, if (ring) CHANNEL_RING else CHANNEL)
             .setSmallIcon(android.R.drawable.ic_popup_reminder)
-            .setContentTitle(if (name.isBlank()) "💊 该吃药了" else "💊 该吃药了：$name")
-            .setContentText("$time · " + (dosage.ifBlank { MedLogic.fmt(amount) + unit }))
+            .setContentTitle(if (name.isBlank()) head else "$head：$name")
+            .setContentText("$time · " + (dosage.ifBlank { MedLogic.fmt(amount) + unit }) + (if (round > 0) " · 第 ${round + 1} 次提醒" else ""))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
@@ -137,7 +164,10 @@ object MedNotify {
             .addAction(0, "已服用", action(MedReceiver.ACTION_TAKE, 1))
             .addAction(0, "跳过", action(MedReceiver.ACTION_SKIP, 2))
             .addAction(0, "10 分钟后", action(MedReceiver.ACTION_SNOOZE, 3))
+            .apply { if (ring) setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM), AudioManager.STREAM_ALARM) }   // 安卓 8 以下没有渠道，铃声设在通知上
             .build()
+        // 响铃的药：铃声一直重复，直到点了按钮或把通知划掉
+        if (ring) n.flags = n.flags or Notification.FLAG_INSISTENT
         ctx.getSystemService(NotificationManager::class.java).notify(notifId, n)
     }
 
@@ -189,7 +219,7 @@ object MedScheduler {
     const val GROUP = "med"
 
     /** 通知编号按这一次服药固定下来：重排时顺序会变，用序号的话后面的提醒会顶掉还没处理的通知 */
-    private fun notifId(doseKey: String) = BASE + 1000 + Math.floorMod(doseKey.hashCode(), 1000)   // 31000–31999，不和低库存（32000 起）撞
+    fun notifId(doseKey: String) = BASE + 1000 + Math.floorMod(doseKey.hashCode(), 1000)   // 31000–31999，不和低库存（32000 起）撞
 
     fun reschedule(ctx: Context) {
         val app = ctx.applicationContext
@@ -275,6 +305,34 @@ object MedScheduler {
     }
 }
 
+/**
+ * 吃药通知弹出来以后没处理（没点已服用 / 跳过，划掉了、没看到）：隔一段时间再提醒一次，最多几次（设置 → 通知）。
+ * 用“稍后提醒”同一套记录，手机重启后也会排回来；记了已服用 / 跳过、点了“10 分钟后”就取消。
+ */
+object MedNag {
+    private const val BASE = 38000
+
+    private fun code(nid: Int) = BASE + Math.floorMod(nid, 1000)
+
+    /** 排第 round 次再提醒（round 从 1 开始），超过设置的次数就不排 */
+    fun schedule(ctx: Context, src: Intent, round: Int) {
+        val app = ctx.applicationContext
+        val minutes = Prefs.medNagMinutes(app)
+        if (minutes <= 0 || round > Prefs.medNagMax(app)) return
+        val nid = src.getIntExtra("nid", 0)
+        val i = Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_NAG).putExtras(src).putExtra("round", round)
+        Delivery.snooze(app, code(nid), i, System.currentTimeMillis() + minutes * 60_000L)
+    }
+
+    fun cancel(ctx: Context, nid: Int) {
+        val app = ctx.applicationContext
+        val am = app.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        am.cancel(PendingIntent.getBroadcast(app, code(nid), Intent(app, MedReceiver::class.java).setAction(MedReceiver.ACTION_NAG),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
+        Delivery.forgetSnooze(app, code(nid))
+    }
+}
+
 /** 到点弹通知；处理通知上的“已服用 / 跳过 / 10 分钟后” */
 class MedReceiver : BroadcastReceiver() {
     companion object {
@@ -283,6 +341,7 @@ class MedReceiver : BroadcastReceiver() {
         const val ACTION_SKIP = "app.birthdayreminder.MED_SKIP"
         const val ACTION_SNOOZE = "app.birthdayreminder.MED_SNOOZE"
         const val ACTION_FOLLOWUP = "app.birthdayreminder.MED_FOLLOWUP"
+        const val ACTION_NAG = "app.birthdayreminder.MED_NAG"
         private const val SNOOZE_BASE = 34000
     }
 
@@ -308,18 +367,41 @@ class MedReceiver : BroadcastReceiver() {
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
                         // 补发的和原来那次都到了，只弹一次
-                        if (Delivery.claim(app, MedScheduler.GROUP, intent)) MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
+                        if (Delivery.claim(app, MedScheduler.GROUP, intent)) {
+                            MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit)
+                            MedNag.schedule(app, intent, 1)
+                        }
                         MedScheduler.rescheduleNow(app)
                     } catch (e: Exception) { } finally { pending.finish() }
                 }
             }
+            ACTION_NAG -> {
+                val pending = goAsync()
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        Delivery.claim(app, MedScheduler.GROUP, intent)      // 只为划掉重启后要重排的记录
+                        // 这一次已经记了已服用 / 跳过，或者药删了、停用了：不再催
+                        val dao = AppDatabase.get(app).medDao()
+                        val med = dao.getMed(medId)
+                        val logged = dao.getLogs().any { it.id == MedLogic.doseKey(medId, date, time) }
+                        if (med != null && med.active && !logged) {
+                            val round = intent.getIntExtra("round", 1)
+                            MedNotify.dose(app, nid, medId, name, dosage, date, time, amount, unit, round)
+                            MedNag.schedule(app, intent, round + 1)
+                        }
+                    } catch (e: Exception) { } finally { pending.finish() }
+                }
+            }
             ACTION_SNOOZE -> {
+                // 点了“10 分钟后”：原来的再提醒取消，10 分钟后弹出时重新开始算
+                MedNag.cancel(app, nid)
                 app.getSystemService(NotificationManager::class.java).cancel(nid)
                 val i = Intent(app, MedReceiver::class.java).setAction(ACTION_SHOW).putExtras(intent)
                 // 记下来，重启手机后也会重新排上
                 Delivery.snooze(app, SNOOZE_BASE + (nid % 1000), i, System.currentTimeMillis() + 10 * 60_000L)
             }
             ACTION_TAKE, ACTION_SKIP -> {
+                MedNag.cancel(app, nid)
                 app.getSystemService(NotificationManager::class.java).cancel(nid)
                 val pending = goAsync()
                 CoroutineScope(Dispatchers.IO).launch {

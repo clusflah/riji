@@ -224,6 +224,7 @@ class MainActivityCompose : FragmentActivity() {
                                 onOpenFitnessDate = { date -> nav.navigate("fitness?date=$date") },
                                 onOpenAllergyDate = { date -> nav.navigate("allergy?date=$date") },
                                 onOpenSettings = { nav.navigate("settings") },
+                                onOpenReliability = { nav.navigate("settings?sub=check") },
                                 onAiClick = { nav.navigate("assistant") },
                                 onPrivacyEntry = { enterPrivacy { nav.navigate("privacy") { launchSingleTop = true } } },
                                 onSearch = { nav.navigate("search") }
@@ -284,7 +285,13 @@ class MainActivityCompose : FragmentActivity() {
                             onEditRecord = { id -> nav.navigate("visit/$id") }
                         )
                     }
-                    composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }) }
+                    // sub：直接打开某一页设置（首页“提醒可能不准时”提示点进来是 check）
+                    composable(
+                        route = "settings?sub={sub}",
+                        arguments = listOf(navArgument("sub") { type = NavType.StringType; defaultValue = "" })
+                    ) { entry ->
+                        SettingsScreen(onBack = { nav.popBackStack() }, initialSub = entry.arguments?.getString("sub").orEmpty())
+                    }
                     composable(
                         route = "phrase/{id}?private={private}",
                         arguments = listOf(navArgument("id") { type = NavType.StringType }, navArgument("private") { type = NavType.StringType; defaultValue = "0" })
