@@ -19,11 +19,14 @@ object NotificationHelper {
 
     fun ensureChannel(ctx: Context) {
         if (Build.VERSION.SDK_INT < 26) return
+        val nm = ctx.getSystemService(NotificationManager::class.java)
         val ch = NotificationChannel(CHANNEL_ID, "生日与提醒", NotificationManager.IMPORTANCE_HIGH).apply {
             description = "生日、提醒事项提醒"
             enableVibration(true)
+            // 有勿扰权限时每次重建都会按这里的值覆盖“可以打扰”，所以这里也要带上，不然会被改回去
+            if (nm.isNotificationPolicyAccessGranted) setBypassDnd(true)
         }
-        ctx.getSystemService(NotificationManager::class.java).createNotificationChannel(ch)
+        nm.createNotificationChannel(ch)
     }
 
     fun hasPermission(ctx: Context): Boolean =
