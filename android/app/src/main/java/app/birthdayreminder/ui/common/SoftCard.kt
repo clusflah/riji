@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import kotlinx.coroutines.launch
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.ViewWeek
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Map
@@ -261,6 +262,7 @@ fun eventIcon(kind: String): Pair<ImageVector, Color> = when (kind) {
     "calendar" -> Icons.Outlined.CalendarMonth to LiColors.term
     "lunar" -> Icons.Outlined.DarkMode to Color(0xFF6B7A90)
     "week" -> Icons.Outlined.ViewWeek to Color(0xFF6B7A90)
+    "update" -> Icons.Outlined.SystemUpdate to LiColors.done
     else -> Icons.Outlined.Event to LiColors.term
 }
 

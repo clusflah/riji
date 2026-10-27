@@ -249,6 +249,11 @@ fun SettingsScreen(onBack: () -> Unit, initialSub: String = "") {
                 NavGroup("高级设置") {
                     NavRow("map", "高德地图 Key", if (amapKey.isNotBlank()) "已填写" else "日记“添加位置”用，未填写", last = true) { sub = "高德地图（日记里“添加位置”用）" }
                 }
+                NavGroup("关于") {
+                    NavRow("update", "检查更新", "当前版本 " + app.birthdayreminder.update.appUpdater.currentVersion(ctx), last = true) {
+                        (ctx as? Activity)?.let { app.birthdayreminder.update.appUpdater.checkNow(it) }
+                    }
+                }
             }
 
             // ---------------- 功能开关 ----------------
