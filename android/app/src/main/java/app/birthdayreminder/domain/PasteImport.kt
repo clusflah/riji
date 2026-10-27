@@ -9,7 +9,8 @@ package app.birthdayreminder.domain
  */
 object PasteImport {
     private val mdImage = Regex("!\\[[^\\]\\n]*]\\(([^)\\s]+)[^)]*\\)")
-    private val imageUrlLine = Regex("^\\s*(https?://\\S+?\\.(?:png|jpe?g|gif|webp)(?:[?#]\\S*)?)\\s*$", RegexOption.IGNORE_CASE)
+    // 单独一行的网址：可能是图片（输入法助手“输入”时图片变成了网址），转换时试着下载，不是图片就照原样留着
+    private val imageUrlLine = Regex("^\\s*(https?://\\S+)\\s*$", RegexOption.IGNORE_CASE)
     private val fence = Regex("^\\s*(```|~~~)")
     private val mdSignal = Regex("(?m)^\\s{0,3}(#{1,6}\\s|[-*+]\\s|\\d{1,3}[.)]\\s|>\\s|\\|.*\\||```)|\\*\\*[^*\\n]+\\*\\*")
 
@@ -23,7 +24,7 @@ object PasteImport {
 
     /**
      * 转换前整理：行中间的 ![](…) 拆到单独一行（toBlocks 只认独占一行的图片），
-     * 单独一行的图片网址（输入法助手“输入”时图片会变成网址）也当图片，代码块的 ``` 行去掉。
+     * 单独一行的网址也先当图片（下载下来不是图片就还是网址），代码块的 ``` 行去掉。
      */
     fun prepare(text: String): String {
         val out = ArrayList<String>()

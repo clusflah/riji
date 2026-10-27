@@ -45,9 +45,10 @@ object ImageStorage {
             bytes = try {
                 conn.connectTimeout = 10_000
                 conn.readTimeout = 20_000
-                if (conn.responseCode !in 200..299) null
+                mime = conn.contentType?.substringBefore(';')?.trim()
+                // 网页等其它内容不用下载
+                if (conn.responseCode !in 200..299 || (mime != null && !mime.startsWith("image/"))) null
                 else {
-                    mime = conn.contentType?.substringBefore(';')?.trim()
                     conn.inputStream.use { ins ->
                         val out = java.io.ByteArrayOutputStream()
                         val buf = ByteArray(16 * 1024)

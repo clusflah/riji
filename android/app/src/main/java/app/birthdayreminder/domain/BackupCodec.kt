@@ -503,7 +503,7 @@ object DiaryBackupText {
     fun toBlocks(
         text: String,
         resolveFile: (String) -> String? = { null },
-        keepUnresolved: Boolean = false,         // 粘贴时用：图片下载不下来就把那一行留成文字，不悄悄丢掉
+        keepUnresolved: Boolean = false,         // 粘贴时用：图片下载不下来就留下它的网址，不悄悄丢掉
         resolve: (String) -> String?
     ): List<ContentBlock> {
         val out = ArrayList<ContentBlock>()
@@ -524,7 +524,7 @@ object DiaryBackupText {
             val m = imageLine.find(line)
             if (m == null) { buf.add(line); continue }
             val path = resolve(m.groupValues[1])
-            if (path == null && keepUnresolved) { buf.add(line); continue }
+            if (path == null && keepUnresolved) { buf.add(m.groupValues[1]); continue }
             flush()
             path?.let { out.add(ContentBlock.ImageBlock(imagePath = it)) }
         }
