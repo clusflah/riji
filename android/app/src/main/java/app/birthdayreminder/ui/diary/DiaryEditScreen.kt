@@ -62,6 +62,7 @@ import app.birthdayreminder.domain.Modules
 import app.birthdayreminder.ui.common.ModuleStore
 import app.birthdayreminder.domain.TableOps
 import app.birthdayreminder.domain.RichText
+import app.birthdayreminder.domain.PasteImport
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.border
@@ -232,6 +233,15 @@ fun DiaryEditScreen(
             }
 
 
+            if (vm.importing) {
+                Text(
+                    "正在整理粘贴的内容（下载图片）…",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+                )
+            }
+
             if (vm.location != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
@@ -278,6 +288,7 @@ fun DiaryEditScreen(
                                 BasicTextField(
                                     value = tfv,
                                     onValueChange = { nv ->
+                                        val tfv0 = tfv
                                         // 列表行里回车：下一行自动续上格式（空的列表行再回车就结束列表）
                                         val cont = if (nv.composition == null) RichText.continueOnEnter(tfv.text, nv.text, nv.selection.start) else null
                                         val r = when {
@@ -288,6 +299,20 @@ fun DiaryEditScreen(
                                         tfv = if (r.text == nv.text && r.selStart == nv.selection.start && r.selEnd == nv.selection.end) nv
                                         else TextFieldValue(r.text, TextRange(r.selStart, r.selEnd))
                                         vm.updateBlockText(index, block, r.text, r.selStart, r.selEnd)
+                                        // 一次进来一大段带格式 / 图片的文字（粘贴、输入法助手“输入”的 AI 回答）：
+                                        // 先照原样显示，后台转成日记格式、下载图片，好了再换上
+                                        if (nv.composition == null && !vm.importing) {
+                                            val old = tfv0.text
+                                            val new = r.text
+                                            if (new.length - old.length >= 4) {
+                                                val p = old.commonPrefixWith(new).length
+                                                val sfx = old.substring(p).commonSuffixWith(new.substring(p)).length
+                                                val inserted = new.substring(p, new.length - sfx)
+                                                if (PasteImport.worthConverting(inserted)) {
+                                                    vm.importPasted(block.id, new, new.substring(0, p), inserted, new.substring(new.length - sfx))
+                                                }
+                                            }
+                                        }
                                     },
                                     visualTransformation = richVisual,
                                     onTextLayout = { layout = it },
