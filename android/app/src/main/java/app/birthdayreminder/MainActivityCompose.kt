@@ -31,6 +31,8 @@ import android.os.Bundle
 import androidx.fragment.app.FragmentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.remember
 import android.widget.Toast
@@ -198,7 +200,10 @@ class MainActivityCompose : FragmentActivity() {
                     if (privacyKicked) { nav.popBackStack("calendar", false); privacyKicked = false }
                 }
 
-                NavHost(navController = nav, startDestination = "calendar") {
+                // 全面屏（edge-to-edge）下 adjustResize 不再自动给键盘让位：在最外层统一留出键盘的高度，
+                // 每个页面都跟着变矮，正在输入的那一行（日记、编辑页、设置里的输入框）就不会被键盘盖住。
+                // 里面页面自己再写 imePadding 也不会重复（已经让过的高度不会再算一次）
+                NavHost(navController = nav, startDestination = "calendar", modifier = Modifier.fillMaxSize().imePadding()) {
                     composable("calendar") {
                         // 首页就是日历；左下角“数据”打开数据面板，右下角“+”打开添加面板
                         CalendarScreen(
