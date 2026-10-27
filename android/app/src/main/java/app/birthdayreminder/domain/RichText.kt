@@ -321,6 +321,80 @@ object RichText {
         return EditResult(out, cursor + 1, cursor + 1)
     }
 
+    /**
+     * 手打 Markdown 自动变格式（像大多数笔记 App 一样），只在“刚刚敲了一个字”时检查：
+     *  - 行首敲完 “# ”“## ”“- ”“* ”“1. ”“> ” 这样的前缀（最后那个空格）：这一行变成对应格式，前缀消失；
+     *    列表行里再敲 “[ ] ” / “[x] ” 变待办。全角的 ＃ ＊ － ＞ 和全角空格也认
+     *  - 敲完 **粗** / *斜* / _斜_ / `代码` / ~~划~~ 的结尾符号：变成对应的样式，符号消失
+     * 不是这些情况返回 null。
+     */
+    fun autoFormat(old: String, new: String, cursor: Int): EditResult? {
+        if (new.length != old.length + 1 || cursor < 1 || cursor > new.length) return null
+        val p = cursor - 1
+        if (new.substring(0, p) != old.substring(0, p) || new.substring(cursor) != old.substring(p)) return null
+        val typed = halfWidth(new[p])
+        val lineStart = new.lastIndexOf('\n', p - 1) + 1
+        val mark = new.getOrNull(lineStart)?.takeIf { it in LINE_MARKS }
+        val contentStart = if (mark != null) lineStart + 1 else lineStart
+        val before = new.substring(contentStart, cursor).map { halfWidth(it) }.joinToString("")
+
+        if (typed == ' ') {
+            val m = when {
+                mark == null -> when {
+                    before == "# " -> H1
+                    Regex("^#{2,6} $").matches(before) -> H2
+                    before == "- [ ] " || before == "* [ ] " || before == "[] " || before == "[ ] " -> TODO
+                    before.lowercase() == "- [x] " || before.lowercase() == "[x] " -> DONE
+                    before == "- " || before == "+ " -> DASH
+                    before == "* " -> DOT
+                    Regex("^\\d{1,3}[.)] $").matches(before) -> NUM
+                    before == "> " -> QUOTE
+                    else -> null
+                }
+                (mark == DASH || mark == DOT) && (before == "[] " || before == "[ ] ") -> TODO
+                (mark == DASH || mark == DOT) && before.lowercase() == "[x] " -> DONE
+                else -> null
+            }
+            if (m != null) {
+                val out = new.substring(0, lineStart) + m + new.substring(cursor)
+                return EditResult(out, lineStart + 1, lineStart + 1)
+            }
+        }
+
+        if (typed in "*_`~") {
+            // 这一行光标前的部分（不跨过已有的隐藏标记，免得打乱别的样式）
+            val seg = new.substring(contentStart, cursor)
+            val lastMark = seg.indexOfLast { isMarker(it) }
+            val plain = seg.substring(lastMark + 1).map { halfWidth(it) }.joinToString("")
+            val base = contentStart + lastMark + 1
+            for ((re, on, off) in INLINE_TYPING) {
+                val m = re.find(plain) ?: continue
+                val inner = m.groupValues[1]
+                if (inner.isBlank() || inner.first().isWhitespace() || inner.last().isWhitespace()) continue
+                val start = base + m.range.first
+                val out = new.substring(0, start) + on + inner + off + new.substring(cursor)
+                val pos = start + inner.length + 2
+                return EditResult(out, pos, pos)
+            }
+        }
+        return null
+    }
+
+    private fun halfWidth(c: Char) = when (c) {
+        '＃' -> '#'; '＊' -> '*'; '－' -> '-'; '＞' -> '>'; '＿' -> '_'; '～' -> '~'; '｀' -> '`'; '　' -> ' '; '［' -> '['; '］' -> ']'
+        else -> c
+    }
+
+    // 顺序要紧：先认 **粗** 再认 *斜*（*斜* 的开头前面不能还是 *）
+    private val INLINE_TYPING = listOf(
+        Triple(Regex("\\*\\*([^*]+)\\*\\*$"), B_ON, B_OFF),
+        Triple(Regex("__([^_]+)__$"), B_ON, B_OFF),
+        Triple(Regex("~~([^~]+)~~$"), S_ON, S_OFF),
+        Triple(Regex("`([^`]+)`$"), C_ON, C_OFF),
+        Triple(Regex("(?<![*\\w])\\*([^*]+)\\*$"), I_ON, I_OFF),
+        Triple(Regex("(?<![_\\w])_([^_]+)_$"), I_ON, I_OFF),
+    )
+
     // ---------------------------------------------------------------- 转换
     /** 好读的纯文字（给 AI、搜索、列表摘要用） */
     fun toPlain(raw: String): String {

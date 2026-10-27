@@ -57,4 +57,43 @@ class RichTextTest {
         val r = RichText.continueOnEnter(old, new, new.length)!!
         assertEquals(old + "\n" + RichText.QUOTE, r.text)
     }
+
+    private fun type(old: String, ch: Char, at: Int = old.length): RichText.EditResult? {
+        val new = old.substring(0, at) + ch + old.substring(at)
+        return RichText.autoFormat(old, new, at + 1)
+    }
+
+    @Test
+    fun typingLinePrefixesBecomesFormat() {
+        assertEquals(RichText.H1.toString(), type("#", ' ')!!.text)
+        assertEquals(RichText.H2.toString(), type("###", ' ')!!.text)
+        assertEquals(RichText.DASH.toString(), type("-", ' ')!!.text)
+        assertEquals(RichText.DOT.toString(), type("*", ' ')!!.text)
+        assertEquals(RichText.NUM.toString(), type("12.", ' ')!!.text)
+        assertEquals(RichText.QUOTE.toString(), type("＞", ' ')!!.text)          // 全角也认
+        assertEquals("前一行\n" + RichText.H1, type("前一行\n#", ' ')!!.text)
+        // 列表行里敲 [ ] 变待办
+        assertEquals(RichText.TODO.toString(), type(RichText.DASH + "[ ]", ' ')!!.text)
+        // 不在行首、已经有格式的行、不是空格：不动
+        assertEquals(null, type("a #", ' '))
+        assertEquals(null, type(RichText.H1 + "#", ' '))
+        assertEquals(null, type("#", 'a'))
+    }
+
+    @Test
+    fun typingClosingDelimiterBecomesStyle() {
+        val bold = type("看 **重点*", '*')!!
+        val line = RichText.parse(bold.text)[0]
+        assertEquals("看 重点", line.text)
+        assertEquals(listOf(0, 0, RichText.BOLD, RichText.BOLD), line.styles)
+        assertEquals(bold.text.length, bold.selStart)
+
+        assertEquals(listOf(RichText.ITALIC), RichText.parse(type("*斜", '*')!!.text)[0].styles)
+        assertEquals(listOf(RichText.CODE, RichText.CODE), RichText.parse(type("`ab", '`')!!.text)[0].styles)
+        assertEquals(listOf(RichText.STRIKE), RichText.parse(type("~~划~", '~')!!.text)[0].styles)
+        // 还在敲 ** 的开头、数学式子、单词里的下划线：不动
+        assertEquals(null, type("**", '粗'))
+        assertEquals(null, type("2 * 3 ", '*'))
+        assertEquals(null, type("a_b_c", '_'))
+    }
 }

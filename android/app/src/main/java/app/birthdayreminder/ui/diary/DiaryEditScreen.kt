@@ -311,7 +311,10 @@ fun DiaryEditScreen(
                                     onValueChange = { nv ->
                                         val tfv0 = tfv
                                         // 列表行里回车：下一行自动续上格式（空的列表行再回车就结束列表）
-                                        val cont = if (nv.composition == null) RichText.continueOnEnter(tfv.text, nv.text, nv.selection.start) else null
+                                        val cont = if (nv.composition == null && nv.selection.collapsed)
+                                            RichText.continueOnEnter(tfv.text, nv.text, nv.selection.start)
+                                                ?: RichText.autoFormat(tfv.text, nv.text, nv.selection.start)    // 手打 # - 1. > **粗** 等自动变格式
+                                        else null
                                         val r = when {
                                             cont != null -> cont
                                             nv.composition == null -> RichText.normalizeKeeping(nv.text, nv.selection.start, nv.selection.end)
