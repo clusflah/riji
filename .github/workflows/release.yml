@@ -1,32 +1,76 @@
 name: Release
 
-# 推送 v 开头的标签（例如 v1.5.8）时，打出两个签名正式版 APK 并发布到 GitHub Releases。
-# 标签里的版本号必须和 android/app/build.gradle 里的 versionName 一致。
-# 也可以在 Actions 页面手动运行，填一个已有的标签（标签已推送但上次发布失败时用）。
+# 发布正式版：打出两个签名正式版 APK 并发布到 GitHub Releases。三种触发方式：
+# - 推送到 main：android/app/build.gradle 里的 versionName 还没有对应的 v 标签时，自动打标签并发布；
+#   版本号没改（标签已经有了）就什么都不做，所以平时的提交不会发版
+# - 推送 v 开头的标签（例如 v1.5.8）：直接发布这个标签，标签里的版本号必须和 versionName 一致
+# - 在 Actions 页面手动运行：填一个标签；不填就用 main 上当前的 versionName。标签不存在时在 main 最新提交上创建
+#   （标签已推送但上次发布失败时，也用这个重新发布）
 on:
   push:
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
     inputs:
       tag:
-        description: '要发布的已有标签，例如 v1.5.7'
-        required: true
-
-env:
-  TAG: ${{ inputs.tag || github.ref_name }}
+        description: '要发布的标签，例如 v1.5.7；不填就用当前的 versionName'
+        required: false
 
 permissions:
   contents: write
 
-# 同一个提交的日常构建（推送 main）和发布（推送标签）排队、不同时跑：
-# 两个同时跑时打包几次在一分钟内失败，单独跑都成功
-concurrency:
-  group: android-build-${{ github.sha }}
-  cancel-in-progress: false
-
 jobs:
-  release:
+  # 决定发布哪个标签，需要的话先把标签打上。用 GITHUB_TOKEN 推的标签不会再触发一次这个工作流，所以不会重复发布
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Decide tag
+        id: decide
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          NAME=$(grep -oP 'versionName "\K[^"]+' android/app/build.gradle)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "tag=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TAG="${INPUT_TAG:-v$NAME}"
+          RC=0; git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null || RC=$?
+          if [ "$RC" != 0 ] && [ "$RC" != 2 ]; then echo "::error::查不了远程标签"; exit 1; fi
+          if [ "$RC" = 0 ]; then
+            if [ "$GITHUB_EVENT_NAME" = push ]; then
+              echo "$TAG 已经有了（版本号没改），不发布"
+              exit 0
+            fi
+            echo "发布已有的标签 $TAG"
+          else
+            if [ "${TAG#v}" != "$NAME" ]; then
+              echo "::error::标签 $TAG 和 versionName $NAME 不一致，不打标签"
+              exit 1
+            fi
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+            echo "在 ${GITHUB_SHA::7} 上打了标签 $TAG"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: prepare
+    if: needs.prepare.outputs.tag != ''
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.prepare.outputs.tag }}
+    # 同一个提交的日常构建（推送 main）和发布排队、不同时跑：
+    # 两个同时跑时打包几次在一分钟内失败，单独跑都成功
+    concurrency:
+      group: android-build-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v5
         with:

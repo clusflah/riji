@@ -38,9 +38,12 @@ cd android
 1. `android/app/build.gradle` 的 `versionName` 改成新版本号。
 2. `CHANGELOG.md` 最上面加 `## x.y.z（YYYY-MM-DD）` 一节（发布说明就从这里取）。
 3. `README.md` 开头的 **版本 x.y.z** 也改掉。
-4. 提交并推送 `main`，再打 `v` 开头的标签并推送，例如 `git tag v1.5.9`、`git push origin v1.5.9`。
+4. 提交并推送（或合并）到 `main` 就行，不用自己打标签。
 
-`.github/workflows/release.yml` 会检查标签和 `versionName` 一致、用正式签名打包、核对证书指纹，然后发布到 GitHub Releases。只有用户要求发布时才打标签。
+`.github/workflows/release.yml` 在推送到 `main` 时看 `versionName`：还没有对应的 `v` 标签就自动打标签，用正式签名打包、核对证书指纹，发布到 GitHub Releases；标签已经有了（版本号没改）就不发。所以**改了 `versionName` 的提交进了 `main` 就会发版**，只有用户要求发布时才改版本号。
+
+- 手动推 `v` 开头的标签也会发布（标签必须和 `versionName` 一致）。
+- 在 Actions 页面手动运行 Release：不填标签就发布当前 `versionName`；标签不存在会在 `main` 最新提交上创建。上次发布失败时用它重新发。
 
 ## 签名（不要动）
 
