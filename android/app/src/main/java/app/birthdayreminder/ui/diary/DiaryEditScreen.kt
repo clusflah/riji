@@ -16,6 +16,13 @@ import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
 import app.birthdayreminder.ui.common.TgTopBar
 import android.content.ClipboardManager
+import androidx.core.view.inputmethod.InputConnectionCompat
+import androidx.core.view.inputmethod.EditorInfoCompat
+import androidx.compose.ui.platform.PlatformTextInputSession
+import androidx.compose.ui.platform.PlatformTextInputMethodRequest
+import androidx.compose.ui.platform.PlatformTextInputInterceptor
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.ExperimentalComposeUiApi
 import android.net.Uri
 import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.runtime.DisposableEffect
@@ -113,7 +120,7 @@ import java.time.LocalDate
  * vm 由调用方（导航图）用父路由作用域创建并传入，这样跳去“添加位置”页面再返回，
  * 正文和已选状态都还在，不会被重置。
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 @Composable
 fun DiaryEditScreen(
     id: String?,
@@ -255,7 +262,8 @@ fun DiaryEditScreen(
                 TextButton(onClick = onPickLocation, modifier = Modifier.padding(start = 8.dp)) { Text("📍 添加位置") }
             }
 
-            run {
+            // 输入法直接发来的图片（输入法里 AI 生成的图、表情包、贴纸等）：告诉输入法这里收图片，收到就插在光标处
+            InterceptPlatformTextInput(remember(vm) { ImageReceivingInput(context) { vm.insertImage(it) } }) {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     itemsIndexed(vm.blocks, key = { _, b -> b.id }) { index, block ->
                         when (block) {
@@ -515,3 +523,36 @@ private fun clipboardHasImage(clipboard: ClipboardManager?): Boolean = runCatchi
     val d = clipboard?.primaryClipDescription ?: return@runCatching false
     (0 until d.mimeTypeCount).any { d.getMimeType(it).startsWith("image/") }
 }.getOrDefault(false)
+
+/**
+ * 正文编辑框用的旧版 BasicTextField 不认输入法发来的图片（commitContent），这里在它和输入法之间加一层：
+ * 声明能收图片（image 开头的类型），收到的图片复制进 App（和“图片”按钮选的一样），再交给 [onImage] 插进日记。
+ */
+@OptIn(ExperimentalComposeUiApi::class)
+private class ImageReceivingInput(
+    private val context: android.content.Context,
+    private val onImage: (String) -> Unit
+) : PlatformTextInputInterceptor {
+    override suspend fun interceptStartInputMethod(
+        request: PlatformTextInputMethodRequest,
+        nextHandler: PlatformTextInputSession
+    ): Nothing = nextHandler.startInputMethod(PlatformTextInputMethodRequest { outAttrs ->
+        val ic = request.createInputConnection(outAttrs)
+        EditorInfoCompat.setContentMimeTypes(outAttrs, arrayOf("image/*"))
+        @Suppress("DEPRECATION")
+        InputConnectionCompat.createWrapper(ic, outAttrs) { info, flags, _ ->
+            val needGrant = android.os.Build.VERSION.SDK_INT >= 25 &&
+                (flags and InputConnectionCompat.INPUT_CONTENT_GRANT_READ_URI_PERMISSION) != 0
+            val path = try {
+                if (needGrant) info.requestPermission()
+                ImageStorage.saveFromUri(context, info.contentUri, info.description.getMimeType(0))
+            } catch (e: Exception) {
+                null
+            } finally {
+                if (needGrant) runCatching { info.releasePermission() }
+            }
+            if (path != null) onImage(path)
+            path != null
+        }
+    })
+}
