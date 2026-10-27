@@ -147,6 +147,8 @@ class MainActivityCompose : FragmentActivity() {
         CloudSync.schedule(this)
         pendingOpen = readOpen(intent)
         enableEdgeToEdge()
+        // 有新版本时提示（一天最多查一次）
+        app.birthdayreminder.update.appUpdater.autoCheck(this)
         // 高刷新率：用屏幕支持的最高刷新率（至少 90Hz），滑动更流畅
         applyRefreshRate(this)
 

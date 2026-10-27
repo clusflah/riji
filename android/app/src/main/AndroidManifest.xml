@@ -16,6 +16,8 @@
     <!-- Health Connect 后台自动同步（较新的系统才支持；没有的话只在打开 App 时同步） -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- 应用内更新：下载新版后调起系统安装 -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
@@ -123,6 +125,17 @@
             <meta-data
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/diary_file_paths" />
+        </provider>
+
+        <!-- 应用内更新下载的安装包交给系统安装器 -->
+        <provider
+            android:name=".update.UpdateFileProvider"
+            android:authorities="${applicationId}.update"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
         </provider>
 
         <receiver android:name=".AlarmReceiver" android:exported="false" />
