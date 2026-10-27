@@ -3,6 +3,8 @@ package app.birthdayreminder.ui.diary
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
@@ -12,7 +14,7 @@ import androidx.compose.ui.unit.sp
 import app.birthdayreminder.domain.RichText
 
 /**
- * 编辑框的“所见即所得”：把隐藏的格式标记换成显示效果（大小标题、编号、圆点、横线、方框、划线），
+ * 编辑框的“所见即所得”：把隐藏的格式标记换成显示效果（大小标题、编号、圆点、横线、方框、引用、划线、加粗、斜体、代码），
  * 并告诉编辑框原文和显示文字之间光标位置怎么对应（RichText.render 算好的对照表）。
  */
 class RichVisualTransformation(private val prefixColor: Color, private val doneColor: Color) : VisualTransformation {
@@ -26,6 +28,10 @@ class RichVisualTransformation(private val prefixColor: Color, private val doneC
                 RichText.Style.PREFIX -> SpanStyle(color = prefixColor, fontWeight = FontWeight.SemiBold)
                 RichText.Style.DONE -> SpanStyle(color = doneColor, textDecoration = TextDecoration.LineThrough)
                 RichText.Style.STRIKE -> SpanStyle(textDecoration = TextDecoration.LineThrough)
+                RichText.Style.BOLD -> SpanStyle(fontWeight = FontWeight.Bold)
+                RichText.Style.ITALIC -> SpanStyle(fontStyle = FontStyle.Italic)
+                RichText.Style.CODE -> SpanStyle(fontFamily = FontFamily.Monospace, background = doneColor.copy(alpha = 0.15f))
+                RichText.Style.QUOTE -> SpanStyle(color = doneColor)
             }
             out.addStyle(style, s.start, s.end)
         }

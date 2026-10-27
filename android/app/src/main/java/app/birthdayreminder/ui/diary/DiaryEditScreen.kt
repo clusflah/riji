@@ -7,6 +7,10 @@ import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.FormatStrikethrough
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.FormatItalic
+import androidx.compose.material.icons.filled.FormatBold
+import androidx.compose.material.icons.filled.FormatQuote
 import androidx.compose.material.icons.filled.CheckBox
 import androidx.compose.material.icons.filled.HorizontalRule
 import androidx.compose.material.icons.filled.FormatListBulleted
@@ -212,10 +216,19 @@ fun DiaryEditScreen(
                 FormatIcon(Icons.Default.FormatListBulleted, "圆点列表") { vm.mutateRich { t, a, b -> RichText.setLineMark(t, a, b, RichText.DOT) } }
                 FormatIcon(Icons.Default.HorizontalRule, "横线列表") { vm.mutateRich { t, a, b -> RichText.setLineMark(t, a, b, RichText.DASH) } }
                 FormatIcon(Icons.Default.CheckBox, "待办") { vm.mutateRich { t, a, b -> RichText.setLineMark(t, a, b, RichText.TODO) } }
+                FormatIcon(Icons.Default.FormatQuote, "引用") { vm.mutateRich { t, a, b -> RichText.setLineMark(t, a, b, RichText.QUOTE) } }
                 FormatDivider()
-                FormatIcon(Icons.Default.FormatStrikethrough, "划线") {
-                    if (vm.focusedCursor == vm.focusedSelEnd) Toast.makeText(context, "先选中要划线的文字", Toast.LENGTH_SHORT).show()
-                    else vm.mutateRich { t, a, b -> RichText.toggleStrike(t, a, b) }
+                // 行内样式：作用在选中的文字上，再点一次取消
+                for ((icon, label, bit) in listOf(
+                    Triple(Icons.Default.FormatBold, "加粗", RichText.BOLD),
+                    Triple(Icons.Default.FormatItalic, "斜体", RichText.ITALIC),
+                    Triple(Icons.Default.FormatStrikethrough, "划线", RichText.STRIKE),
+                    Triple(Icons.Default.Code, "代码", RichText.CODE),
+                )) {
+                    FormatIcon(icon, label) {
+                        if (vm.focusedCursor == vm.focusedSelEnd) Toast.makeText(context, "先选中要${label}的文字", Toast.LENGTH_SHORT).show()
+                        else vm.mutateRich { t, a, b -> RichText.toggleInline(t, a, b, bit) }
+                    }
                 }
                 FormatIcon(Icons.Default.TableChart, "表格") { vm.insertTable() }
             }
@@ -298,7 +311,10 @@ fun DiaryEditScreen(
                                     onValueChange = { nv ->
                                         val tfv0 = tfv
                                         // 列表行里回车：下一行自动续上格式（空的列表行再回车就结束列表）
-                                        val cont = if (nv.composition == null) RichText.continueOnEnter(tfv.text, nv.text, nv.selection.start) else null
+                                        val cont = if (nv.composition == null && nv.selection.collapsed)
+                                            RichText.continueOnEnter(tfv.text, nv.text, nv.selection.start)
+                                                ?: RichText.autoFormat(tfv.text, nv.text, nv.selection.start)    // 手打 # - 1. > **粗** 等自动变格式
+                                        else null
                                         val r = when {
                                             cont != null -> cont
                                             nv.composition == null -> RichText.normalizeKeeping(nv.text, nv.selection.start, nv.selection.end)
