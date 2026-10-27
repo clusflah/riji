@@ -15,7 +15,11 @@ import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Title
 import app.birthdayreminder.ui.common.TgTopBar
+import android.content.ClipboardManager
 import android.net.Uri
+import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -142,6 +146,20 @@ fun DiaryEditScreen(
         }
     }
 
+    // 剪贴板里有图片（截图、在相册或网页里点了“复制图片”）时多一个“粘贴图片”。
+    // 文本框自己的“粘贴”只认文字，键盘直接发图片它也收不了，所以从这里放进日记；
+    // 只看剪贴板的类型说明，不读内容，不会弹“已读取剪贴板”的提示。
+    // 回到这一页（窗口重新拿到焦点）时也查一次：在别的 App 里复制的图片，回来就能粘
+    val clipboard = remember { context.getSystemService(ClipboardManager::class.java) }
+    var clipHasImage by remember { mutableStateOf(false) }
+    val windowFocused = LocalWindowInfo.current.isWindowFocused
+    DisposableEffect(clipboard) {
+        val check = ClipboardManager.OnPrimaryClipChangedListener { clipHasImage = clipboardHasImage(clipboard) }
+        clipboard?.addPrimaryClipChangedListener(check)
+        onDispose { clipboard?.removePrimaryClipChangedListener(check) }
+    }
+    LaunchedEffect(windowFocused) { if (windowFocused) clipHasImage = clipboardHasImage(clipboard) }
+
     Scaffold(
         topBar = {
             TgTopBar(
@@ -200,6 +218,13 @@ fun DiaryEditScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 ToolPill(Icons.Outlined.Image, "图片") { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }
+                if (clipHasImage) ToolPill(Icons.Outlined.ContentPaste, "粘贴图片") {
+                    val clip = runCatching { clipboard?.primaryClip }.getOrNull()
+                    val uris = clip?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).uri } }.orEmpty()
+                    val saved = uris.mapNotNull { uri -> ImageStorage.saveFromUri(context, uri, context.contentResolver.getType(uri)) }
+                    saved.forEach { vm.insertImage(it) }
+                    if (saved.isEmpty()) Toast.makeText(context, "剪贴板里的图片读不到了，换“图片”从相册里选", Toast.LENGTH_SHORT).show()
+                }
                 ToolPill(Icons.Outlined.AttachFile, "附件") { filePicker.launch(arrayOf("*/*")) }
                 if (ModuleStore.isOn(context, Modules.AI)) ToolPill(Icons.Outlined.AutoAwesome, if (vm.polishing) "润色中…" else "AI 润色", ai = true) {      // AI 助手关掉了就不显示润色
                     if (!vm.polishing) vm.startPolish()
@@ -459,3 +484,9 @@ private fun AttachmentCard(b: ContentBlock.FileBlock, onDelete: (() -> Unit)?) {
         if (onDelete != null) TextButton(onClick = onDelete) { Text("删除", color = MaterialTheme.colorScheme.error) }
     }
 }
+
+/** 剪贴板里是不是图片：只看类型说明（image 开头），不读内容 */
+private fun clipboardHasImage(clipboard: ClipboardManager?): Boolean = runCatching {
+    val d = clipboard?.primaryClipDescription ?: return@runCatching false
+    (0 until d.mimeTypeCount).any { d.getMimeType(it).startsWith("image/") }
+}.getOrDefault(false)
