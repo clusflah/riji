@@ -30,7 +30,7 @@ object ImageStorage {
     }
 
     /**
-     * 粘贴进来的图片地址（网址或 data:）-> 存进 App 的相对路径；不是图片、太大或下载失败返回 null。
+     * 粘贴进来的图片地址（网址、data: 或别的 App 给了读权限的 content://）-> 存进 App 的相对路径；不是图片、太大或下载失败返回 null。
      * 会联网，要在后台线程调用。
      */
     fun saveFromAddress(context: Context, src: String): String? = try {
@@ -63,6 +63,21 @@ object ImageStorage {
                 }
             } finally {
                 conn.disconnect()
+            }
+        } else if (src.startsWith("content://")) {
+            // 小企鹅输入法大模型助手回答里的图片：输入法给了日迹读它的权限
+            val uri = Uri.parse(src)
+            mime = context.contentResolver.getType(uri)
+            bytes = context.contentResolver.openInputStream(uri)?.use { ins ->
+                val out = java.io.ByteArrayOutputStream()
+                val buf = ByteArray(16 * 1024)
+                while (true) {
+                    val n = ins.read(buf)
+                    if (n < 0) break
+                    out.write(buf, 0, n)
+                    if (out.size() > MAX_PASTE_BYTES) return@use null
+                }
+                out.toByteArray()
             }
         } else bytes = null
         // 确认真的是图片（网址可能是网页）
