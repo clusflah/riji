@@ -20,6 +20,8 @@ import app.birthdayreminder.data.FileStorage
 import app.birthdayreminder.domain.RichText
 import app.birthdayreminder.domain.TableOps
 import app.birthdayreminder.domain.BlockOps
+import app.birthdayreminder.domain.DiaryBackupText
+import app.birthdayreminder.domain.PasteImport
 import app.birthdayreminder.domain.EditResult
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -186,6 +188,52 @@ class DiaryEditViewModel(app: Application) : AndroidViewModel(app) {
         val idx = blocks.indexOfFirst { it.id == blockId }
         val b = blocks.getOrNull(idx) as? ContentBlock.TableBlock ?: return
         blocks[idx] = b.copy(rows = rows)
+    }
+
+    /** 正在转换粘贴进来的内容（下载图片要一会儿） */
+    var importing: Boolean by mutableStateOf(false)
+
+    /**
+     * 粘贴 / 键盘送进来一大段 AI 回答：Markdown 转成日记格式，表格变表格块，图片下载下来变图片块。
+     * expected 是粘贴后这段文字的样子；转换完成前用户又改了这段，就不动它（粘贴的原文还在）。
+     */
+    fun importPasted(blockId: String, expected: String, head: String, pasted: String, tail: String) {
+        val app = getApplication<Application>()
+        importing = true
+        viewModelScope.launch {
+            try {
+                val parsed = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    DiaryBackupText.toBlocks(PasteImport.prepare(pasted), keepUnresolved = true) { src ->
+                        ImageStorage.saveFromAddress(app, src)
+                    }
+                }
+                val idx = blocks.indexOfFirst { it.id == blockId }
+                val target = blocks.getOrNull(idx) as? ContentBlock.TextBlock
+                if (target == null || target.text != expected) {
+                    // 来不及了：已经存下的图片不用了，删掉
+                    parsed.filterIsInstance<ContentBlock.ImageBlock>().forEach { ImageStorage.delete(app, it.imagePath) }
+                    return@launch
+                }
+                // 前后原有的文字接在第一段 / 最后一段上；第一段沿用原来的 id，编辑框不会丢焦点
+                val list = parsed.toMutableList()
+                if (list.firstOrNull() is ContentBlock.TextBlock) {
+                    val first = list.removeAt(0) as ContentBlock.TextBlock
+                    list.add(0, ContentBlock.TextBlock(id = blockId, text = head + first.text))
+                } else list.add(0, ContentBlock.TextBlock(id = blockId, text = head.trimEnd('\n')))
+                val last = list.last()
+                if (last is ContentBlock.TextBlock && list.size > 1) list[list.size - 1] = last.copy(text = last.text + tail)
+                else if (last is ContentBlock.TextBlock) list[0] = (list[0] as ContentBlock.TextBlock).let { it.copy(text = it.text + tail) }
+                else list.add(ContentBlock.TextBlock(text = tail.trimStart('\n')))
+                blocks.removeAt(idx)
+                blocks.addAll(idx, list)
+                focusedId = blockId
+                focusedCursor = (list[0] as ContentBlock.TextBlock).text.length
+                focusedSelEnd = focusedCursor
+                richTick++
+            } finally {
+                importing = false
+            }
+        }
     }
 
     fun insertImage(path: String) {

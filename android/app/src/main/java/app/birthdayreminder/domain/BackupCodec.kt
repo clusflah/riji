@@ -500,7 +500,12 @@ object DiaryBackupText {
     /**
      * resolve：图片地址 -> 本机路径；resolveFile：附件地址 -> 本机路径（文件已经不在就返回 null，整行丢掉）
      */
-    fun toBlocks(text: String, resolveFile: (String) -> String? = { null }, resolve: (String) -> String?): List<ContentBlock> {
+    fun toBlocks(
+        text: String,
+        resolveFile: (String) -> String? = { null },
+        keepUnresolved: Boolean = false,         // 粘贴时用：图片下载不下来就留下它的网址，不悄悄丢掉
+        resolve: (String) -> String?
+    ): List<ContentBlock> {
         val out = ArrayList<ContentBlock>()
         val buf = ArrayList<String>()
         fun flush() {
@@ -518,8 +523,10 @@ object DiaryBackupText {
             }
             val m = imageLine.find(line)
             if (m == null) { buf.add(line); continue }
+            val path = resolve(m.groupValues[1])
+            if (path == null && keepUnresolved) { buf.add(m.groupValues[1]); continue }
             flush()
-            resolve(m.groupValues[1])?.let { out.add(ContentBlock.ImageBlock(imagePath = it)) }
+            path?.let { out.add(ContentBlock.ImageBlock(imagePath = it)) }
         }
         flush()
         return BlockOps.ensureTrailingText(out)
