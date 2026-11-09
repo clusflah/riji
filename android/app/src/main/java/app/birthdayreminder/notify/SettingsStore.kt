@@ -30,6 +30,7 @@ object SettingsStore {
             showLunar = p.getBoolean("showLunar", d.showLunar),
             showFestival = p.getBoolean("showFestival", d.showFestival),
             theme = p.getString("theme", d.theme)?.takeIf { it in listOf("auto", "light", "dark") } ?: d.theme,
+            liquidGlass = p.getBoolean("liquidGlass", d.liquidGlass),
             holidayAlert = p.getBoolean("holidayAlert", d.holidayAlert),
             strongAlarm = p.getBoolean("strongAlarm", d.strongAlarm),
             autoHoliday = p.getBoolean("autoHoliday", d.autoHoliday),
@@ -60,6 +61,7 @@ object SettingsStore {
             .putBoolean("showLunar", s.showLunar)
             .putBoolean("showFestival", s.showFestival)
             .putString("theme", s.theme)
+            .putBoolean("liquidGlass", s.liquidGlass)
             .putBoolean("holidayAlert", s.holidayAlert)
             .putBoolean("strongAlarm", s.strongAlarm)
             .putBoolean("autoHoliday", s.autoHoliday)

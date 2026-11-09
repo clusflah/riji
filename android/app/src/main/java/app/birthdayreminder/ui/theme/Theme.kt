@@ -1,6 +1,8 @@
 package app.birthdayreminder.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -10,7 +12,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import app.birthdayreminder.ui.common.LiquidGlassBackdrop
+import app.birthdayreminder.ui.common.LocalLiquidGlass
 
 // 直接照抄 www/index.html 里 :root 的 CSS 变量色值，保证换成原生后视觉不跳变
 object LiColors {
@@ -61,12 +67,14 @@ object LiColors {
 }
 
 @Composable
-fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    // 日迹的设计系统：浅色顶栏、留白、无边框的浅底卡片，蓝色只做强调
+fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), liquidGlass: Boolean = true, content: @Composable () -> Unit) {
+    // 日迹的设计系统：浅色顶栏、留白、无边框的浅底卡片，蓝色只做强调；
+    // 开启液体玻璃时，页面背景透明以透出底层的环境流光晕染，弹窗和菜单用冰晶玻璃色
     val scheme = if (darkTheme) {
+        val dialogBg = if (liquidGlass) Color(0xF01C222E) else LiColors.tgDialogDark
         darkColorScheme(
-            background = LiColors.tgBgDark,
-            surface = LiColors.tgBgDark,
+            background = if (liquidGlass) Color.Transparent else LiColors.tgBgDark,
+            surface = if (liquidGlass) Color(0xB8141822) else LiColors.tgBgDark,
             onBackground = LiColors.textDark,
             onSurface = LiColors.textDark,
             primary = LiColors.tgAccentDark,
@@ -84,15 +92,16 @@ fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () 
             onSurfaceVariant = LiColors.subDark,
             surfaceVariant = LiColors.fillDark,
             surfaceContainerLowest = LiColors.cardDark,
-            surfaceContainerLow = LiColors.tgDialogDark,       // 底部弹出层
-            surfaceContainer = LiColors.tgDialogDark,          // 菜单
-            surfaceContainerHigh = LiColors.tgDialogDark,      // 弹窗
+            surfaceContainerLow = dialogBg,       // 底部弹出层
+            surfaceContainer = dialogBg,          // 菜单
+            surfaceContainerHigh = dialogBg,      // 弹窗
             surfaceContainerHighest = LiColors.fillDark
         )
     } else {
+        val dialogBg = if (liquidGlass) Color(0xF2F6FAFF) else LiColors.tgBgLight
         lightColorScheme(
-            background = LiColors.tgBgLight,
-            surface = LiColors.tgBgLight,
+            background = if (liquidGlass) Color.Transparent else LiColors.tgBgLight,
+            surface = if (liquidGlass) Color(0xB8F8FBFF) else LiColors.tgBgLight,
             onBackground = LiColors.textLight,
             onSurface = LiColors.textLight,
             primary = LiColors.tgAccentLight,
@@ -109,9 +118,9 @@ fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () 
             onSurfaceVariant = LiColors.subLight,
             surfaceVariant = LiColors.fillLight,
             surfaceContainerLowest = LiColors.cardLight,
-            surfaceContainerLow = LiColors.tgBgLight,
-            surfaceContainer = LiColors.tgBgLight,
-            surfaceContainerHigh = LiColors.tgBgLight,
+            surfaceContainerLow = dialogBg,
+            surfaceContainer = dialogBg,
+            surfaceContainerHigh = dialogBg,
             surfaceContainerHighest = LiColors.fillLight
         )
     }
@@ -136,5 +145,16 @@ fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () 
         labelMedium = base.labelMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
         labelSmall = base.labelSmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
     )
-    MaterialTheme(colorScheme = scheme, shapes = shapes, typography = typography, content = content)
+    CompositionLocalProvider(LocalLiquidGlass provides liquidGlass) {
+        MaterialTheme(colorScheme = scheme, shapes = shapes, typography = typography) {
+            if (liquidGlass) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LiquidGlassBackdrop(dark = darkTheme, modifier = Modifier.fillMaxSize())
+                    content()
+                }
+            } else {
+                content()
+            }
+        }
+    }
 }

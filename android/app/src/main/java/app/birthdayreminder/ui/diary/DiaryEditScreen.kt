@@ -2,6 +2,7 @@ package app.birthdayreminder.ui.diary
 
 import androidx.compose.ui.unit.sp
 import app.birthdayreminder.ui.common.Tg
+import app.birthdayreminder.ui.common.liquidGlassSurface
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Image
@@ -456,7 +457,13 @@ private fun FormatIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, la
 private fun ToolPill(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, ai: Boolean = false, onClick: () -> Unit) {
     val purple = Color(0xFF8B5CF6)
     Row(
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(if (ai) purple.copy(alpha = 0.10f) else Tg.card)
+        modifier = Modifier
+            .liquidGlassSurface(
+                shape = RoundedCornerShape(12.dp),
+                tint = if (ai) purple else null,
+                tintAlpha = 0.14f,
+                fallbackColor = if (ai) purple.copy(alpha = 0.10f) else Tg.card
+            )
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

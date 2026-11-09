@@ -12,6 +12,7 @@ data class AppSettings(
     val showLunar: Boolean = true,
     val showFestival: Boolean = true,  // 日历显示中国节日和二十四节气
     val theme: String = "auto",       // auto / light / dark
+    val liquidGlass: Boolean = true,  // 液体玻璃视觉效果（默认开启）
     val holidayAlert: Boolean = true,
     // 闹钟级提醒：提醒和用药按闹钟的方式定时。国产手机（OPPO 等）对普通定时限制得很死，到点不弹、打开 App 才弹；
     // 闹钟级的定时系统不会推迟。代价是状态栏会有闹钟图标、锁屏显示的“下一个闹钟”可能是提醒的时间

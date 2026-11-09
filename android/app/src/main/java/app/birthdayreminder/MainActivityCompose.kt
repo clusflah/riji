@@ -176,7 +176,7 @@ class MainActivityCompose : FragmentActivity() {
         setContent {
             val settings by SettingsStore.flow.collectAsState()
             val dark = when (settings.theme) { "dark" -> true; "light" -> false; else -> isSystemInDarkTheme() }
-            LiTheme(darkTheme = dark) {
+            LiTheme(darkTheme = dark, liquidGlass = settings.liquidGlass) {
                 // 顶栏是浅色：状态栏图标跟着 App 的深浅色走（App 里单独选了深色 / 浅色时也对）
                 val view = androidx.compose.ui.platform.LocalView.current
                 SideEffect {

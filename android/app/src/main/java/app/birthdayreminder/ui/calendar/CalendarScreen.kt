@@ -3,6 +3,10 @@ package app.birthdayreminder.ui.calendar
 import app.birthdayreminder.ui.common.TileSheet
 import app.birthdayreminder.ui.common.HomeTabs
 import app.birthdayreminder.ui.common.TgFabLabeled
+import app.birthdayreminder.ui.common.LocalLiquidGlass
+import app.birthdayreminder.ui.common.liquidGlassBar
+import app.birthdayreminder.ui.common.liquidGlassButton
+import app.birthdayreminder.ui.common.liquidGlassSurface
 import app.birthdayreminder.notify.Reliability
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -228,7 +232,9 @@ fun CalendarScreen(
             // 右下角：AI 助手在“+”上方；上下滑动时一起隐藏，停下来再出现
             Column(modifier = Modifier.navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (on(Modules.AI)) HideOnScroll(fabHide) {
-                    androidx.compose.material3.SmallFloatingActionButton(onClick = onAiClick, shape = RoundedCornerShape(12.dp),
+                    val aiShape = RoundedCornerShape(12.dp)
+                    androidx.compose.material3.SmallFloatingActionButton(onClick = onAiClick,
+                        modifier = Modifier.liquidGlassButton(aiShape, lightTint = true), shape = aiShape,
                         containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary,
                         elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 1.dp, pressedElevation = 3.dp)) {
                         Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI 助手", modifier = Modifier.size(20.dp))
@@ -453,8 +459,14 @@ private fun ReliabilityBanner(onOpen: () -> Unit) {
     var dismissed by remember { mutableStateOf(Prefs.reliabilityDismissed(ctx)) }
     if (bad.isEmpty() || sig == dismissed) return
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)).clickable(onClick = onOpen)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            .liquidGlassSurface(
+                shape = RoundedCornerShape(12.dp),
+                tint = MaterialTheme.colorScheme.error,
+                tintAlpha = 0.16f,
+                fallbackColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.55f)
+            )
+            .clickable(onClick = onOpen)
             .padding(start = 14.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -472,7 +484,8 @@ private fun ReliabilityBanner(onOpen: () -> Unit) {
 private fun DayPreviewSheet(ui: CalendarUiState, onDismiss: () -> Unit, onOpen: (DayTimeline.Entry) -> Unit) {
     val d = ui.selected
     val entries = remember(ui) { dayEntries(ui) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = MaterialTheme.colorScheme.surface) {
+    val sheetBg = if (LocalLiquidGlass.current) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surface
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = sheetBg) {
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             Text("${d.monthValue}月${d.dayOfMonth}日 " + WEEK_NAMES[d.dayOfWeek.value - 1], fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(horizontal = 20.dp))
@@ -547,7 +560,7 @@ private fun MonthHeader(
     val holdState = rememberUpdatedState(onTitleHold)
     // 标题放不下时自动一号号缩小（最小 16sp），保证“2026年11月”始终完整显示
     var titleSize by remember(title) { mutableStateOf(22f) }
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
+    Column(modifier = Modifier.fillMaxWidth().liquidGlassBar(MaterialTheme.colorScheme.surface).statusBarsPadding()) {
         Row(
             modifier = Modifier.fillMaxWidth().height(48.dp).padding(start = 4.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -678,17 +691,23 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
         day.isToday -> primary
         else -> MaterialTheme.colorScheme.onSurface.copy(alpha = dim)
     }
+    val cellShape = RoundedCornerShape(12.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .height(if (showLunar) 38.dp else 34.dp)
             .padding(horizontal = 2.dp, vertical = 1.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(
-                when {
-                    isSelected && day.isToday -> primary.copy(alpha = 0.16f)
-                    isSelected -> primary.copy(alpha = 0.09f)
-                    else -> Color.Transparent
+            .then(
+                if (isSelected) {
+                    Modifier.liquidGlassSurface(
+                        shape = cellShape,
+                        tint = primary,
+                        tintAlpha = if (day.isToday) 0.22f else 0.14f,
+                        borderWidth = 0.9.dp,
+                        fallbackColor = if (day.isToday) primary.copy(alpha = 0.16f) else primary.copy(alpha = 0.09f)
+                    )
+                } else {
+                    Modifier.clip(cellShape)
                 }
             )
             // 不用系统波纹：滑动翻月时波纹可能残留在格子上（之前看到的灰块），选中高亮就是点按反馈
@@ -884,7 +903,10 @@ private fun AgendaDayRow(day: Agenda.Day, today: LocalDate, onOpen: (UpcomingIte
             Text(listOf("周一", "周二", "周三", "周四", "周五", "周六", "周日")[day.date.dayOfWeek.value - 1], fontSize = 13.sp,
                 color = if (isToday) primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal)
             Column(
-                modifier = Modifier.padding(top = 2.dp).size(48.dp).clip(CircleShape).background(if (isToday) primary.copy(alpha = 0.15f) else Color.Transparent),
+                modifier = Modifier.padding(top = 2.dp).size(48.dp).then(
+                    if (isToday) Modifier.liquidGlassSurface(CircleShape, tint = primary, tintAlpha = 0.18f, fallbackColor = primary.copy(alpha = 0.15f))
+                    else Modifier.clip(CircleShape)
+                ),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
             ) {
                 Text(day.date.dayOfMonth.toString(), fontSize = 18.sp, fontWeight = FontWeight.Medium, color = if (isToday) primary else MaterialTheme.colorScheme.onSurface)

@@ -31,7 +31,8 @@ class SheetItem(val kind: String, val title: String, val action: () -> Unit)
 @Composable
 fun TileSheet(groups: List<Pair<String, List<SheetItem>>>, container: Color, tile: Color, onDismiss: () -> Unit) {
     val shown = groups.filter { it.second.isNotEmpty() }
-    ModalBottomSheet(onDismissRequest = onDismiss, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = container) {
+    val sheetBg = if (LocalLiquidGlass.current) MaterialTheme.colorScheme.surfaceContainerLow else container
+    ModalBottomSheet(onDismissRequest = onDismiss, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp), containerColor = sheetBg) {
         Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 32.dp)) {
             if (shown.isEmpty()) {
                 Text("所有功能都关掉了，可以在设置 → 功能开关里打开", modifier = Modifier.padding(8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)

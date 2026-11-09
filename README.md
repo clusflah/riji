@@ -3,7 +3,7 @@
 [![Build Android APK](https://github.com/clusflah/riji/actions/workflows/build-apk.yml/badge.svg)](https://github.com/clusflah/riji/actions/workflows/build-apk.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**版本 1.11.0**（更新记录见 [CHANGELOG.md](CHANGELOG.md)）
+**版本 1.12.0**（更新记录见 [CHANGELOG.md](CHANGELOG.md)）
 
 日迹是一个以日历为中心的安卓记录应用：农历、节假日和调休一眼看清，生日、提醒、闹钟、日记、学习、健身、用药、生理期都记在同一个地方，按日期串成每天的时间轴。
 不用注册登录，数据只存在手机里（以及你自己设置的云盘里）。支持 Android 7.0 及以上。
@@ -145,7 +145,7 @@
 | 分组 | 内容 |
 |---|---|
 | 日历 | 显示农历、显示节日和节气、每周从周日或周一开始 |
-| 通用 | 外观（跟随系统 / 浅色 / 深色、高刷新率）；通知（系统通知开关、每日提醒时间、新建生日的默认提前提醒、节假日与补班提醒）；提醒检查 |
+| 通用 | 外观（跟随系统 / 浅色 / 深色、液体玻璃效果、高刷新率）；通知（系统通知开关、每日提醒时间、新建生日的默认提前提醒、节假日与补班提醒）；提醒检查 |
 | 功能 | 功能开关：不用的项目（日记、提醒、健身、学习、闹钟、过敏、用药就医、生理期、常用语、生日、AI 助手）可以整个关掉，关掉后界面、提醒、小组件、AI 里都不再出现，数据保留，重新打开就回来 |
 | 数据 | 数据备份、云盘备份、节假日数据 |
 | 高级设置 | 高德地图 Key |

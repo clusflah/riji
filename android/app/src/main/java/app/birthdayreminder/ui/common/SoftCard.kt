@@ -118,7 +118,13 @@ fun TgGap(height: Dp = 12.dp) { Spacer(Modifier.fillMaxWidth().height(height)) }
 fun TgAvatar(text: String, seed: String = text, size: Dp = 42.dp) {
     val label = text.trim().let { t -> if (t.length <= 2 && t.all { it.isDigit() }) t else t.take(1) }.ifEmpty { "·" }
     val color = Tg.AVATARS[Math.floorMod(seed.hashCode(), Tg.AVATARS.size)]
-    Box(modifier = Modifier.size(size).clip(CircleShape).background(color.copy(alpha = 0.16f)), contentAlignment = Alignment.Center) {
+    Box(
+        modifier = Modifier.size(size).liquidGlassSurface(
+            shape = CircleShape, tint = color, tintAlpha = 0.18f, borderWidth = 0.8.dp,
+            fallbackColor = color.copy(alpha = 0.16f)
+        ),
+        contentAlignment = Alignment.Center
+    ) {
         Text(label, color = color, fontWeight = FontWeight.SemiBold, fontSize = if (label.length > 1) 15.sp else 17.sp)
     }
 }
@@ -136,13 +142,13 @@ fun TgSectionTitle(text: String, modifier: Modifier = Modifier, hint: String? = 
 @Composable
 fun Modifier.softCard(shape: Shape = CircleShape): Modifier = this
 
-/** 卡片：浅底色、14 圆角、左右 16 的外边距，没有边框和阴影 */
+/** 卡片：浅底色、14 圆角、左右 16 的外边距；开启液体玻璃时带折射渐变与高光边 */
 @Composable
-fun SoftCard(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(12.dp), content: @Composable ColumnScope.() -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(shape).background(Tg.card).then(modifier), content = content)
+fun SoftCard(modifier: Modifier = Modifier, shape: Shape = RoundedCornerShape(14.dp), content: @Composable ColumnScope.() -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).liquidGlassSurface(shape = shape).then(modifier), content = content)
 }
 
-/** 列表的一行：白底，有头像时分隔线从文字处开始，分隔线很淡 */
+/** 列表的一行：液体玻璃下是独立的轻盈玻璃条；简洁风下是白底加底部分隔线 */
 @Composable
 fun CardListItem(
     headlineContent: @Composable () -> Unit,
@@ -152,33 +158,47 @@ fun CardListItem(
     leadingContent: (@Composable () -> Unit)? = null,
     trailingContent: (@Composable () -> Unit)? = null
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        ListItem(
-            headlineContent = headlineContent,
-            modifier = modifier.padding(vertical = 2.dp),
-            overlineContent = overlineContent,
-            supportingContent = supportingContent,
-            leadingContent = leadingContent,
-            trailingContent = trailingContent,
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
-        )
-        HorizontalDivider(modifier = Modifier.padding(start = if (leadingContent != null) 74.dp else 16.dp),
-            thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    if (LocalLiquidGlass.current) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp).liquidGlassSurface(RoundedCornerShape(14.dp))) {
+            ListItem(
+                headlineContent = headlineContent,
+                modifier = modifier.padding(vertical = 1.dp),
+                overlineContent = overlineContent,
+                supportingContent = supportingContent,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+            )
+        }
+    } else {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            ListItem(
+                headlineContent = headlineContent,
+                modifier = modifier.padding(vertical = 2.dp),
+                overlineContent = overlineContent,
+                supportingContent = supportingContent,
+                leadingContent = leadingContent,
+                trailingContent = trailingContent,
+                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface)
+            )
+            HorizontalDivider(modifier = Modifier.padding(start = if (leadingContent != null) 74.dp else 16.dp),
+                thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        }
     }
 }
 
-/** 设置页的一组：标题在上（灰色小字），内容放在一张浅底卡片里 */
+/** 设置页的一组：标题在上（灰色小字），内容放在一张卡片里 */
 @Composable
 fun CardGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 32.dp, end = 24.dp, top = 24.dp, bottom = 8.dp))
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp)).background(Tg.card)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).liquidGlassSurface(RoundedCornerShape(16.dp))
             .padding(horizontal = 16.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }
 
-/** 顶栏：浅色（和页面同色），深色标题和图标 */
+/** 顶栏：浅色（和页面同色），深色标题和图标；开启液体玻璃时带半透明冰晶底和高光底边 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TgTopBar(
@@ -187,10 +207,11 @@ fun TgTopBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {}
 ) {
+    val barBg = if (LocalLiquidGlass.current) Color.Transparent else Tg.header
     TopAppBar(
-        title = title, modifier = modifier, navigationIcon = navigationIcon, actions = actions,
+        title = title, modifier = modifier.liquidGlassBar(Tg.header), navigationIcon = navigationIcon, actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Tg.header, scrolledContainerColor = Tg.header,
+            containerColor = barBg, scrolledContainerColor = barBg,
             titleContentColor = Tg.onHeader, navigationIconContentColor = Tg.onHeader, actionIconContentColor = Tg.onHeader
         )
     )
@@ -202,12 +223,13 @@ fun OnHeader(content: @Composable () -> Unit) { content() }
 
 /** 浮动按钮的底色：主色调淡一些（叠在页面底色上，不用半透明，免得透出后面的内容和阴影） */
 @Composable
-fun tgFabColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f).compositeOver(MaterialTheme.colorScheme.surface)
+fun tgFabColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = if (LocalLiquidGlass.current) 0.78f else 0.72f).compositeOver(MaterialTheme.colorScheme.surface)
 
-/** 浮动按钮：淡一点的主色、48dp、16 圆角 */
+/** 浮动按钮：淡一点的主色、48dp、16 圆角；开启液体玻璃时带水滴弧面高光和折射外框 */
 @Composable
 fun TgFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp), shape = RoundedCornerShape(16.dp),
+    val shape = RoundedCornerShape(16.dp)
+    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp).liquidGlassButton(shape), shape = shape,
         containerColor = tgFabColor(), contentColor = Color.White,
         // 阴影调低，视觉上轻一点，不和旁边的卡片抢
         elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
@@ -217,7 +239,8 @@ fun TgFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composab
 /** 带文字的“+”：首页选了具体标签时写明加的是什么（“+ 提醒”），点之前就知道会发生什么 */
 @Composable
 fun TgFabLabeled(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    androidx.compose.material3.ExtendedFloatingActionButton(onClick = onClick, modifier = modifier.height(48.dp), shape = RoundedCornerShape(16.dp),
+    val shape = RoundedCornerShape(16.dp)
+    androidx.compose.material3.ExtendedFloatingActionButton(onClick = onClick, modifier = modifier.height(48.dp).liquidGlassButton(shape), shape = shape,
         containerColor = tgFabColor(), contentColor = Color.White,
         elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
         icon = { Icon(Icons.Default.Add, contentDescription = null) },
@@ -227,7 +250,8 @@ fun TgFabLabeled(text: String, onClick: () -> Unit, modifier: Modifier = Modifie
 /** 和“+”一样大的次要按钮：浅蓝底、蓝色图标（首页左下角的“数据”） */
 @Composable
 fun TgFabSecondary(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp), shape = RoundedCornerShape(16.dp),
+    val shape = RoundedCornerShape(16.dp)
+    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp).liquidGlassButton(shape, lightTint = true), shape = shape,
         containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary, content = content)
 }
 
@@ -271,8 +295,14 @@ fun eventIcon(kind: String): Pair<ImageVector, Color> = when (kind) {
 fun EventIcon(kind: String, size: Dp = 36.dp, tint: Color? = null) {
     val (icon, c0) = eventIcon(kind)
     val color = tint ?: c0
-    // 圆底很浅，图标区域不抢眼
-    Box(modifier = Modifier.size(size).clip(CircleShape).background(color.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+    // 圆底很浅，图标区域不抢眼；液体玻璃下像一颗小玻璃珠
+    Box(
+        modifier = Modifier.size(size).liquidGlassSurface(
+            shape = CircleShape, tint = color, tintAlpha = 0.16f, borderWidth = 0.8.dp,
+            fallbackColor = color.copy(alpha = 0.12f)
+        ),
+        contentAlignment = Alignment.Center
+    ) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(size * 0.55f))
     }
 }
@@ -293,7 +323,7 @@ fun splitTitle(s: String): Pair<String, String?> {
     return if (i > 0) s.substring(0, i) to s.substring(i + 3) else s to null
 }
 
-/** 事件卡片：左边图标（或复选框），中间标题 + 灰色补充说明；浅底、14 圆角、没有边框 */
+/** 事件卡片：左边图标（或复选框），中间标题 + 灰色补充说明；浅底、14 圆角 */
 @Composable
 fun EventCard(
     kind: String,
@@ -308,9 +338,15 @@ fun EventCard(
     // 不是所有事都值得一张“大卡片”：普通事件只有很淡的底色；提醒（含待办）和生日用稍明显的卡片，底色带一点各自的颜色
     val accent = when (kind) { "birthday" -> LiColors.birthday; "reminder", "todo" -> LiColors.reminder; else -> null }
     val special = accent != null
+    val fallbackBg = accent?.copy(alpha = if (isDarkUi()) 0.16f else 0.10f) ?: Tg.card.copy(alpha = 0.5f)
     Row(
-        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalMargin, vertical = if (special) 4.dp else 2.dp).clip(RoundedCornerShape(12.dp))
-            .background(accent?.copy(alpha = if (isDarkUi()) 0.16f else 0.10f) ?: Tg.card.copy(alpha = 0.5f))
+        modifier = modifier.fillMaxWidth().padding(horizontal = horizontalMargin, vertical = if (special) 4.dp else 3.dp)
+            .liquidGlassSurface(
+                shape = RoundedCornerShape(14.dp),
+                tint = accent,
+                tintAlpha = if (isDarkUi()) 0.20f else 0.13f,
+                fallbackColor = fallbackBg
+            )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = if (special) 12.dp else 9.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -330,19 +366,37 @@ fun EventCard(
 // ---------------------------------------------------------------- 标签栏
 
 /**
- * 统一的标签栏：选中项主色、未选中灰色，下面是短圆角指示条（32dp × 3dp），没有长横线。
+ * 统一的标签栏：选中项主色、未选中灰色，下面是短圆角指示条（液体玻璃下叠加滑动的水滴胶囊框）。
  * scrollable = true 时可以左右滑动，当前标签会自动滚到能看见的位置。
  */
 @Composable
 fun AppTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit, scrollable: Boolean = false) {
     val sel = selected.coerceIn(0, maxOf(0, titles.lastIndex))
     val primary = MaterialTheme.colorScheme.primary
+    val glass = LocalLiquidGlass.current
     val indicator: @Composable (List<androidx.compose.material3.TabPosition>) -> Unit = { positions ->
         if (sel < positions.size) {
             val pos = positions[sel]
             val x by androidx.compose.animation.core.animateDpAsState(pos.left + (pos.width - 32.dp) / 2, label = "tabIndicator")
-            Box(Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)) {
-                Box(Modifier.offset(x = x).width(32.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(primary))
+            if (glass) {
+                val pillLeft by androidx.compose.animation.core.animateDpAsState(pos.left + 4.dp, label = "pillLeft")
+                val pillWidth by androidx.compose.animation.core.animateDpAsState((pos.width - 8.dp).coerceAtLeast(28.dp), label = "pillWidth")
+                Box(Modifier.fillMaxWidth().fillMaxHeight()) {
+                    // 清透的水滴胶囊镜片（不挡下层文字，只画边缘高光和微弱折射光）
+                    Box(
+                        Modifier.align(Alignment.CenterStart).offset(x = pillLeft).width(pillWidth).height(34.dp)
+                            .liquidGlassButton(shape = CircleShape, lightTint = true)
+                            .background(primary.copy(alpha = 0.08f), CircleShape)
+                    )
+                    Box(
+                        Modifier.align(Alignment.BottomStart).offset(x = x).width(32.dp).height(3.dp)
+                            .clip(RoundedCornerShape(2.dp)).background(primary)
+                    )
+                }
+            } else {
+                Box(Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)) {
+                    Box(Modifier.offset(x = x).width(32.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(primary))
+                }
             }
         }
     }
@@ -355,21 +409,23 @@ fun AppTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit, scroll
             )
         }
     }
+    val rowBg = if (glass) Color.Transparent else MaterialTheme.colorScheme.surface
+    val rowMod = Modifier.liquidGlassBar(MaterialTheme.colorScheme.surface)
     if (scrollable) {
-        androidx.compose.material3.ScrollableTabRow(selectedTabIndex = sel, edgePadding = 12.dp, containerColor = MaterialTheme.colorScheme.surface,
+        androidx.compose.material3.ScrollableTabRow(selectedTabIndex = sel, modifier = rowMod, edgePadding = 12.dp, containerColor = rowBg,
             indicator = indicator, divider = {}, tabs = tabs)
     } else {
-        androidx.compose.material3.TabRow(selectedTabIndex = sel, containerColor = MaterialTheme.colorScheme.surface,
+        androidx.compose.material3.TabRow(selectedTabIndex = sel, modifier = rowMod, containerColor = rowBg,
             indicator = indicator, divider = {}, tabs = tabs)
     }
 }
 
 // ---------------------------------------------------------------- 摘要卡片 / 日期徽章
 
-/** 摘要卡片：小标题（灰）、大数字（正文色）、补充说明（灰）。浅底、12 圆角 */
+/** 摘要卡片：小标题（灰）、大数字（正文色）、补充说明（灰）。浅底、14 圆角 */
 @Composable
 fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier, unit: String = "", hint: String? = null, accent: Color? = null) {
-    Column(modifier = modifier.clip(RoundedCornerShape(12.dp)).background(Tg.card).padding(16.dp)) {
+    Column(modifier = modifier.liquidGlassSurface(RoundedCornerShape(14.dp), tint = accent, tintAlpha = 0.08f).padding(16.dp)) {
         Text(label, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.padding(top = 4.dp)) {
             Text(value, fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = accent ?: MaterialTheme.colorScheme.onSurface)
@@ -379,10 +435,10 @@ fun SummaryCard(label: String, value: String, modifier: Modifier = Modifier, uni
     }
 }
 
-/** 日期徽章：日期数字放在统一颜色的浅底圆角方块里（不再随机彩色） */
+/** 日期徽章：日期数字放在统一颜色的圆角方块里（不再随机彩色） */
 @Composable
 fun DateBadge(day: String, size: Dp = 40.dp) {
-    Box(modifier = Modifier.size(size).clip(RoundedCornerShape(12.dp)).background(Tg.card), contentAlignment = Alignment.Center) {
+    Box(modifier = Modifier.size(size).liquidGlassSurface(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
         Text(day, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurface)
     }
 }
@@ -405,13 +461,13 @@ fun reminderKind(title: String): String {
 
 // ---------------------------------------------------------------- 设置总览、添加菜单
 
-/** 一组设置：灰色小标题在上，下面一张浅底卡片，组内的行用细线分隔 */
+/** 一组设置：灰色小标题在上，下面一张卡片，组内的行用细线分隔 */
 @Composable
 fun NavGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(title, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             modifier = Modifier.padding(start = 32.dp, end = 24.dp, top = 24.dp, bottom = 8.dp))
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(12.dp)).background(Tg.card), content = content)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).liquidGlassSurface(RoundedCornerShape(16.dp)), content = content)
     }
 }
 
@@ -446,7 +502,7 @@ fun NavRow(kind: String?, title: String, summary: String? = null, summaryColor: 
 @Composable
 fun AddTile(kind: String, title: String, modifier: Modifier = Modifier, color: Color = Tg.card, onClick: () -> Unit) {
     Column(
-        modifier = modifier.clip(RoundedCornerShape(14.dp)).background(color).clickable(onClick = onClick)
+        modifier = modifier.liquidGlassSurface(RoundedCornerShape(16.dp), fallbackColor = color).clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

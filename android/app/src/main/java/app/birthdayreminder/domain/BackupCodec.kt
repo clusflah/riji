@@ -32,6 +32,7 @@ data class BackupSettings(
     val showLunar: Boolean? = null,
     val holidayAlert: Boolean? = null,
     val theme: String? = null,
+    val liquidGlass: Boolean? = null,
     val strongAlarm: Boolean? = null      // 旧备份里没有，恢复时保持现在的设置
 )
 
@@ -164,6 +165,7 @@ object BackupCodec {
             "settings" to mapOf(
                 "notify" to settings.notify, "dailyTime" to settings.dailyTime, "defAdvance" to settings.defAdvance,
                 "weekStart" to settings.weekStart, "showLunar" to settings.showLunar, "theme" to settings.theme,
+                "liquidGlass" to settings.liquidGlass,
                 "holidayAlert" to settings.holidayAlert, "autoHoliday" to settings.autoHoliday,
                 "strongAlarm" to settings.strongAlarm
             )
@@ -417,6 +419,7 @@ object BackupCodec {
             showLunar = st["showLunar"] as? Boolean,
             holidayAlert = st["holidayAlert"] as? Boolean,
             theme = (st["theme"] as? String)?.takeIf { it in listOf("auto", "light", "dark") },
+            liquidGlass = st["liquidGlass"] as? Boolean,
             strongAlarm = st["strongAlarm"] as? Boolean
         )
         return BackupData(birthdays, reminders, alarms, diary, phrases, settings, fitness = fitness, fitnessFields = fitnessFields, allergy = allergy,
@@ -455,6 +458,7 @@ object BackupCodec {
         showLunar = s.showLunar ?: cur.showLunar,
         holidayAlert = s.holidayAlert ?: cur.holidayAlert,
         theme = s.theme ?: cur.theme,
+        liquidGlass = s.liquidGlass ?: cur.liquidGlass,
         strongAlarm = s.strongAlarm ?: cur.strongAlarm
     )
 

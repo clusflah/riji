@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.background
 import app.birthdayreminder.ui.common.Tg
 import app.birthdayreminder.ui.common.CardListItem
+import app.birthdayreminder.ui.common.liquidGlassSurface
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
@@ -47,10 +48,11 @@ fun AlarmListContent(
         }
         items(rows, key = { it.alarm.id }) { row ->
             val a = row.alarm
-            // 每个闹钟一张浅底卡片：时间大字，下面是重复方式和下次响铃
+            // 每个闹钟一张卡片：时间大字，下面是重复方式和下次响铃
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(12.dp))
-                    .background(Tg.card).clickable { onEdit(a.id) }.padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+                    .liquidGlassSurface(RoundedCornerShape(14.dp))
+                    .clickable { onEdit(a.id) }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {

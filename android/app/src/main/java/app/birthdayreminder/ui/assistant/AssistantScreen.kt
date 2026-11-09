@@ -2,6 +2,7 @@ package app.birthdayreminder.ui.assistant
 
 import app.birthdayreminder.ui.common.TgTopBar
 import app.birthdayreminder.ui.common.SoftCard
+import app.birthdayreminder.ui.common.liquidGlassSurface
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -208,10 +209,15 @@ fun AssistantScreen(onBack: () -> Unit, vm: AssistantViewModel = viewModel()) {
 
 @Composable
 private fun Bubble(text: String, mine: Boolean) {
+    val fallback = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Box(modifier = Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = if (mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        Box(
+            modifier = Modifier.liquidGlassSurface(
+                shape = RoundedCornerShape(14.dp),
+                tint = if (mine) MaterialTheme.colorScheme.primary else null,
+                tintAlpha = if (mine) 0.18f else 0.14f,
+                fallbackColor = fallback
+            )
         ) {
             // AI 的回复常带 Markdown（**加粗**、列表、表格）：按格式显示，不然星号原样露出来；自己发的按原文
             if (mine) Text(text, modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))

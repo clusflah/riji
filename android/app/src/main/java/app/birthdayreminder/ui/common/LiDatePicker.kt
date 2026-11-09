@@ -108,8 +108,9 @@ fun LiDatePickerDialog(initial: LocalDate, onPick: (LocalDate) -> Unit, onDismis
                 LazyVerticalGrid(columns = GridCells.Fixed(3), state = state, modifier = Modifier.fillMaxWidth().height(300.dp)) {
                     items(years) { y ->
                         val on = y == ym.year
-                        Box(modifier = Modifier.padding(4.dp).clip(RoundedCornerShape(18.dp))
-                            .then(if (on) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
+                        val yShape = RoundedCornerShape(18.dp)
+                        Box(modifier = Modifier.padding(4.dp).clip(yShape)
+                            .then(if (on) Modifier.background(MaterialTheme.colorScheme.primary).liquidGlassButton(yShape) else Modifier)
                             .clickable {
                                 var m = YearMonth.of(y, ym.monthValue)
                                 if (maxYm != null && m > maxYm) m = maxYm
@@ -143,7 +144,7 @@ fun LiDatePickerDialog(initial: LocalDate, onPick: (LocalDate) -> Unit, onDismis
                                         val isToday = day == today
                                         Box(
                                             modifier = Modifier.size(40.dp).clip(CircleShape)
-                                                .then(if (isSel) Modifier.background(MaterialTheme.colorScheme.primary) else Modifier)
+                                                .then(if (isSel) Modifier.background(MaterialTheme.colorScheme.primary).liquidGlassButton(CircleShape) else Modifier)
                                                 .then(if (isToday && !isSel) Modifier.border(1.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
                                                 .clickable(enabled = enabled) { selected = day.toString() },
                                             contentAlignment = Alignment.Center

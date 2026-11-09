@@ -207,7 +207,7 @@ fun SettingsScreen(onBack: () -> Unit, initialSub: String = "") {
                     }, onClick = { change { it.copy(weekStart = 1 - it.weekStart) } })
                 }
                 NavGroup("通用") {
-                    NavRow("appearance", "外观", when (s.theme) { "light" -> "浅色"; "dark" -> "深色"; else -> "跟随系统" } + (if (Prefs.highRefresh(ctx)) " · 高刷新率" else "")) { sub = "外观" }
+                    NavRow("appearance", "外观", when (s.theme) { "light" -> "浅色"; "dark" -> "深色"; else -> "跟随系统" } + (if (s.liquidGlass) " · 液体玻璃" else "") + (if (Prefs.highRefresh(ctx)) " · 高刷新率" else "")) { sub = "外观" }
                     NavRow("notify", "通知", if (s.notify) "已开启 · 每天 ${s.dailyTime}" else "已关闭") { sub = "通知" }
                     NavRow("check", "提醒检查", if (bad == 0) "一切正常" else "有 $bad 项需要处理",
                         summaryColor = if (bad == 0) LiColors.done else MaterialTheme.colorScheme.error, last = true) { sub = "提醒检查" }
@@ -364,6 +364,9 @@ fun SettingsScreen(onBack: () -> Unit, initialSub: String = "") {
             }
             // 农历、节日节气、每周起始日只在总览的“日历”组里设置，这里不再重复
             if (sub == "外观") CardGroup("外观") {
+                SwitchRow("液体玻璃效果", "半透明折射光泽与边缘高光；关掉后恢复简洁纯色", s.liquidGlass) { on ->
+                    change { it.copy(liquidGlass = on) }
+                }
                 var highRefresh by remember { mutableStateOf(Prefs.highRefresh(ctx)) }
                 SwitchRow("高刷新率", "滑动更流畅，会稍微多耗一点电", highRefresh) { on ->
                     highRefresh = on; Prefs.setHighRefresh(ctx, on)
