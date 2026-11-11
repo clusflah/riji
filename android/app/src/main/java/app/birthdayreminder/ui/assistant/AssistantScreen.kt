@@ -215,7 +215,8 @@ private fun Bubble(text: String, mine: Boolean) {
             modifier = Modifier.liquidGlassSurface(
                 shape = RoundedCornerShape(14.dp),
                 tint = if (mine) MaterialTheme.colorScheme.primary else null,
-                tintAlpha = if (mine) 0.18f else 0.14f,
+                tintAlpha = if (mine) 0.12f else 0.06f,
+                whiteFillAlpha = 0.72f,
                 fallbackColor = fallback
             )
         ) {

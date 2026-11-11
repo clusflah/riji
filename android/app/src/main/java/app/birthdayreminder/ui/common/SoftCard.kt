@@ -76,6 +76,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import app.birthdayreminder.ui.theme.LiColors
 
 /**
@@ -119,10 +120,7 @@ fun TgAvatar(text: String, seed: String = text, size: Dp = 42.dp) {
     val label = text.trim().let { t -> if (t.length <= 2 && t.all { it.isDigit() }) t else t.take(1) }.ifEmpty { "·" }
     val color = Tg.AVATARS[Math.floorMod(seed.hashCode(), Tg.AVATARS.size)]
     Box(
-        modifier = Modifier.size(size).liquidGlassSurface(
-            shape = CircleShape, tint = color, tintAlpha = 0.18f, borderWidth = 0.8.dp,
-            fallbackColor = color.copy(alpha = 0.16f)
-        ),
+        modifier = Modifier.size(size).liquidIconCircle(color, fallbackAlpha = 0.16f),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = color, fontWeight = FontWeight.SemiBold, fontSize = if (label.length > 1) 15.sp else 17.sp)
@@ -223,36 +221,122 @@ fun OnHeader(content: @Composable () -> Unit) { content() }
 
 /** 浮动按钮的底色：主色调淡一些（叠在页面底色上，不用半透明，免得透出后面的内容和阴影） */
 @Composable
-fun tgFabColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = if (LocalLiquidGlass.current) 0.78f else 0.72f).compositeOver(MaterialTheme.colorScheme.surface)
+fun tgFabColor(): Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.72f).compositeOver(MaterialTheme.colorScheme.surface)
 
-/** 浮动按钮：淡一点的主色、48dp、16 圆角；开启液体玻璃时带水滴弧面高光和折射外框 */
+/** 浮动按钮：开启液态玻璃时去掉系统灰黑阴影与厚白外框，改用彩色弥散投影 + 半透明蓝渐变 + 顶部水滴内发光 */
 @Composable
 fun TgFab(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp).liquidGlassButton(shape), shape = shape,
-        containerColor = tgFabColor(), contentColor = Color.White,
-        // 阴影调低，视觉上轻一点，不和旁边的卡片抢
-        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
-        content = content)
+    if (LocalLiquidGlass.current) {
+        Box(
+            modifier = modifier
+                .size(48.dp)
+                .liquidFab(shape = shape, primary = MaterialTheme.colorScheme.primary, secondaryStyle = false)
+                .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides Color.White) {
+                content()
+            }
+        }
+    } else {
+        FloatingActionButton(
+            onClick = onClick, modifier = modifier.size(48.dp), shape = shape,
+            containerColor = tgFabColor(), contentColor = Color.White,
+            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
+            content = content
+        )
+    }
 }
 
 /** 带文字的“+”：首页选了具体标签时写明加的是什么（“+ 提醒”），点之前就知道会发生什么 */
 @Composable
-fun TgFabLabeled(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
-    androidx.compose.material3.ExtendedFloatingActionButton(onClick = onClick, modifier = modifier.height(48.dp).liquidGlassButton(shape), shape = shape,
-        containerColor = tgFabColor(), contentColor = Color.White,
-        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
-        icon = { Icon(Icons.Default.Add, contentDescription = null) },
-        text = { Text(text, fontWeight = FontWeight.Medium) })
+fun TgFabLabeled(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, cornerRadius: Dp = 16.dp) {
+    val shape = RoundedCornerShape(cornerRadius)
+    if (LocalLiquidGlass.current) {
+        Row(
+            modifier = modifier
+                .height(48.dp)
+                .liquidFab(shape = shape, primary = MaterialTheme.colorScheme.primary, secondaryStyle = false)
+                .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button)
+                .padding(start = 16.dp, end = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+            Text(text, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        }
+    } else {
+        androidx.compose.material3.ExtendedFloatingActionButton(
+            onClick = onClick, modifier = modifier.height(48.dp), shape = shape,
+            containerColor = tgFabColor(), contentColor = Color.White,
+            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp, pressedElevation = 4.dp, focusedElevation = 2.dp, hoveredElevation = 3.dp),
+            icon = { Icon(Icons.Default.Add, contentDescription = null) },
+            text = { Text(text, fontWeight = FontWeight.Medium) }
+        )
+    }
 }
 
-/** 和“+”一样大的次要按钮：浅蓝底、蓝色图标（首页左下角的“数据”） */
+/** 和“+”一样大的次要按钮：浅蓝底、蓝色图标 */
 @Composable
 fun TgFabSecondary(onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    FloatingActionButton(onClick = onClick, modifier = modifier.size(48.dp).liquidGlassButton(shape, lightTint = true), shape = shape,
-        containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary, content = content)
+    if (LocalLiquidGlass.current) {
+        Box(
+            modifier = modifier
+                .size(48.dp)
+                .liquidFab(shape = shape, primary = MaterialTheme.colorScheme.primary, secondaryStyle = true)
+                .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button),
+            contentAlignment = Alignment.Center
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides MaterialTheme.colorScheme.primary) {
+                content()
+            }
+        }
+    } else {
+        FloatingActionButton(
+            onClick = onClick, modifier = modifier.size(48.dp), shape = shape,
+            containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary, content = content
+        )
+    }
+}
+
+/** 小号悬浮按钮（AI 星星按钮、闹钟页添加按钮）：外层留足 48dp 点按区且不裁剪，内层 40dp 画水滴玻璃与同色弥散柔影 */
+@Composable
+fun TgSmallFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    secondary: Boolean = false,
+    cornerRadius: Dp = 12.dp,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(cornerRadius)
+    if (LocalLiquidGlass.current) {
+        val fg = if (secondary) MaterialTheme.colorScheme.primary else Color.White
+        Box(modifier = modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .liquidFab(shape = shape, primary = MaterialTheme.colorScheme.primary, secondaryStyle = secondary)
+                    .clickable(onClick = onClick, role = androidx.compose.ui.semantics.Role.Button),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.runtime.CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides fg) {
+                    content()
+                }
+            }
+        }
+    } else {
+        androidx.compose.material3.SmallFloatingActionButton(
+            onClick = onClick,
+            modifier = modifier,
+            shape = shape,
+            containerColor = if (secondary) MaterialTheme.colorScheme.primaryContainer else tgFabColor(),
+            contentColor = if (secondary) MaterialTheme.colorScheme.primary else Color.White,
+            elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 1.dp, pressedElevation = 3.dp),
+            content = content
+        )
+    }
 }
 
 // ---------------------------------------------------------------- 图标（代替表情符号）
@@ -295,12 +379,9 @@ fun eventIcon(kind: String): Pair<ImageVector, Color> = when (kind) {
 fun EventIcon(kind: String, size: Dp = 36.dp, tint: Color? = null) {
     val (icon, c0) = eventIcon(kind)
     val color = tint ?: c0
-    // 圆底很浅，图标区域不抢眼；液体玻璃下像一颗小玻璃珠
+    // 圆底清澈轻透，不混灰底，色彩集中在图标本身
     Box(
-        modifier = Modifier.size(size).liquidGlassSurface(
-            shape = CircleShape, tint = color, tintAlpha = 0.16f, borderWidth = 0.8.dp,
-            fallbackColor = color.copy(alpha = 0.12f)
-        ),
+        modifier = Modifier.size(size).liquidIconCircle(color, fallbackAlpha = 0.12f),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(size * 0.55f))
@@ -344,7 +425,8 @@ fun EventCard(
             .liquidGlassSurface(
                 shape = RoundedCornerShape(14.dp),
                 tint = accent,
-                tintAlpha = if (isDarkUi()) 0.20f else 0.13f,
+                tintAlpha = if (isDarkUi()) 0.16f else 0.06f,
+                whiteFillAlpha = 0.66f,
                 fallbackColor = fallbackBg
             )
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
@@ -366,7 +448,9 @@ fun EventCard(
 // ---------------------------------------------------------------- 标签栏
 
 /**
- * 统一的标签栏：选中项主色、未选中灰色，下面是短圆角指示条（液体玻璃下叠加滑动的水滴胶囊框）。
+ * 统一的标签栏：
+ *  - 开启液态玻璃时：去掉生硬的横向白通栏与底部蓝横线，仅用圆润的液态玻璃胶囊滑块（垫在文字下方）作为选中态
+ *  - 简洁风下：白底加短圆角底蓝条
  * scrollable = true 时可以左右滑动，当前标签会自动滚到能看见的位置。
  */
 @Composable
@@ -377,23 +461,21 @@ fun AppTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit, scroll
     val indicator: @Composable (List<androidx.compose.material3.TabPosition>) -> Unit = { positions ->
         if (sel < positions.size) {
             val pos = positions[sel]
-            val x by androidx.compose.animation.core.animateDpAsState(pos.left + (pos.width - 32.dp) / 2, label = "tabIndicator")
             if (glass) {
-                val pillLeft by androidx.compose.animation.core.animateDpAsState(pos.left + 4.dp, label = "pillLeft")
-                val pillWidth by androidx.compose.animation.core.animateDpAsState((pos.width - 8.dp).coerceAtLeast(28.dp), label = "pillWidth")
-                Box(Modifier.fillMaxWidth().fillMaxHeight()) {
-                    // 清透的水滴胶囊镜片（不挡下层文字，只画边缘高光和微弱折射光）
+                val pillLeft by androidx.compose.animation.core.animateDpAsState(pos.left + 6.dp, label = "pillLeft")
+                val pillWidth by androidx.compose.animation.core.animateDpAsState((pos.width - 12.dp).coerceAtLeast(32.dp), label = "pillWidth")
+                Box(Modifier.zIndex(-1f).fillMaxWidth().fillMaxHeight()) {
                     Box(
-                        Modifier.align(Alignment.CenterStart).offset(x = pillLeft).width(pillWidth).height(34.dp)
-                            .liquidGlassButton(shape = CircleShape, lightTint = true)
-                            .background(primary.copy(alpha = 0.08f), CircleShape)
-                    )
-                    Box(
-                        Modifier.align(Alignment.BottomStart).offset(x = x).width(32.dp).height(3.dp)
-                            .clip(RoundedCornerShape(2.dp)).background(primary)
+                        Modifier
+                            .align(Alignment.CenterStart)
+                            .offset(x = pillLeft)
+                            .width(pillWidth)
+                            .height(34.dp)
+                            .liquidTabPill(primary = primary)
                     )
                 }
             } else {
+                val x by androidx.compose.animation.core.animateDpAsState(pos.left + (pos.width - 32.dp) / 2, label = "tabIndicator")
                 Box(Modifier.fillMaxWidth().wrapContentSize(Alignment.BottomStart)) {
                     Box(Modifier.offset(x = x).width(32.dp).height(3.dp).clip(RoundedCornerShape(2.dp)).background(primary))
                 }
@@ -404,13 +486,14 @@ fun AppTabs(titles: List<String>, selected: Int, onSelect: (Int) -> Unit, scroll
         titles.forEachIndexed { i, t ->
             androidx.compose.material3.Tab(
                 selected = i == sel, onClick = { onSelect(i) },
+                modifier = if (glass) Modifier.zIndex(1f) else Modifier,
                 selectedContentColor = primary, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 text = { Text(t, fontSize = 15.sp, fontWeight = if (i == sel) FontWeight.SemiBold else FontWeight.Medium, maxLines = 1) }
             )
         }
     }
     val rowBg = if (glass) Color.Transparent else MaterialTheme.colorScheme.surface
-    val rowMod = Modifier.liquidGlassBar(MaterialTheme.colorScheme.surface)
+    val rowMod = if (glass) Modifier else Modifier.background(MaterialTheme.colorScheme.surface)
     if (scrollable) {
         androidx.compose.material3.ScrollableTabRow(selectedTabIndex = sel, modifier = rowMod, edgePadding = 12.dp, containerColor = rowBg,
             indicator = indicator, divider = {}, tabs = tabs)
@@ -498,11 +581,11 @@ fun NavRow(kind: String?, title: String, summary: String? = null, summaryColor: 
     }
 }
 
-/** 添加菜单里的一格：小的彩色图标圆 + 名称（没有说明），浅底圆角，一行放 4 个 */
+/** 添加菜单里的一格：纯白清透圆角底 + 1px 纯白高光描边，色彩只集中在中间的圆形图标上 */
 @Composable
 fun AddTile(kind: String, title: String, modifier: Modifier = Modifier, color: Color = Tg.card, onClick: () -> Unit) {
     Column(
-        modifier = modifier.liquidGlassSurface(RoundedCornerShape(16.dp), fallbackColor = color).clickable(onClick = onClick)
+        modifier = modifier.liquidGlassTile(cornerRadius = 16.dp, fallbackColor = color).clickable(onClick = onClick)
             .padding(vertical = 12.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {

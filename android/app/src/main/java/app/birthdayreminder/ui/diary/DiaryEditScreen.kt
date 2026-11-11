@@ -461,7 +461,8 @@ private fun ToolPill(icon: androidx.compose.ui.graphics.vector.ImageVector, labe
             .liquidGlassSurface(
                 shape = RoundedCornerShape(12.dp),
                 tint = if (ai) purple else null,
-                tintAlpha = 0.14f,
+                tintAlpha = 0.09f,
+                whiteFillAlpha = 0.72f,
                 fallbackColor = if (ai) purple.copy(alpha = 0.10f) else Tg.card
             )
             .clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),

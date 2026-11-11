@@ -18,8 +18,9 @@ import app.birthdayreminder.ui.common.AppTabs
 import androidx.compose.ui.text.font.FontWeight
 import app.birthdayreminder.ui.common.TgAvatar
 import app.birthdayreminder.ui.common.TgFab
+import app.birthdayreminder.ui.common.TgFabLabeled
+import app.birthdayreminder.ui.common.TgSmallFab
 import app.birthdayreminder.ui.common.TgTopBar
-import app.birthdayreminder.ui.common.liquidGlassButton
 import androidx.compose.foundation.layout.Box
 import androidx.compose.animation.AnimatedContent
 import app.birthdayreminder.ui.common.CardListItem
@@ -146,14 +147,11 @@ fun ListScreen(
             HideOnScroll(fabHide) {
             // 按页面区分：生理期有自己的按钮、常用语在顶栏右上角，都不需要；健身是“＋ 记录”；闹钟用小号
             if (tabIds.isNotEmpty() && tab == OpenTarget.TAB_FITNESS) {
-                val s = RoundedCornerShape(20.dp)
-                androidx.compose.material3.ExtendedFloatingActionButton(onClick = onNewFitness, modifier = Modifier.liquidGlassButton(s), shape = s,
-                    containerColor = app.birthdayreminder.ui.common.tgFabColor(), contentColor = Color.White,
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) }, text = { Text("记录") })
+                TgFabLabeled("记录", onClick = onNewFitness, cornerRadius = 20.dp)
             } else if (tabIds.isNotEmpty() && tab == OpenTarget.TAB_ALARM) {
-                val s = RoundedCornerShape(14.dp)
-                androidx.compose.material3.SmallFloatingActionButton(onClick = onNewAlarm, modifier = Modifier.liquidGlassButton(s), shape = s,
-                    containerColor = app.birthdayreminder.ui.common.tgFabColor(), contentColor = Color.White) { Icon(Icons.Default.Add, contentDescription = "添加闹钟") }
+                TgSmallFab(onClick = onNewAlarm, cornerRadius = 14.dp) {
+                    Icon(Icons.Default.Add, contentDescription = "添加闹钟")
+                }
             } else if (tabIds.isNotEmpty() && tab != OpenTarget.TAB_CYCLE && tab != OpenTarget.TAB_PHRASE) TgFab(onClick = {
                 when (tab) {
                     OpenTarget.TAB_DIARY -> onNewDiary()

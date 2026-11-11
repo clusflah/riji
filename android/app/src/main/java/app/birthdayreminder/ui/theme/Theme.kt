@@ -1,5 +1,8 @@
 package app.birthdayreminder.ui.theme
 
+import android.os.Build
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,10 +16,14 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import app.birthdayreminder.ui.common.LiquidGlassBackdrop
+import app.birthdayreminder.ui.common.LiquidGlassState
 import app.birthdayreminder.ui.common.LocalLiquidGlass
+import app.birthdayreminder.ui.common.createSheetBackdropRenderEffect
 
 // 直接照抄 www/index.html 里 :root 的 CSS 变量色值，保证换成原生后视觉不跳变
 object LiColors {
@@ -98,10 +105,10 @@ fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), liquidGlass: Boolean = t
             surfaceContainerHighest = LiColors.fillDark
         )
     } else {
-        val dialogBg = if (liquidGlass) Color(0xF2F6FAFF) else LiColors.tgBgLight
+        val dialogBg = if (liquidGlass) Color(0xF5FFFFFF) else LiColors.tgBgLight
         lightColorScheme(
             background = if (liquidGlass) Color.Transparent else LiColors.tgBgLight,
-            surface = if (liquidGlass) Color(0xB8F8FBFF) else LiColors.tgBgLight,
+            surface = if (liquidGlass) Color(0xCCFFFFFF) else LiColors.tgBgLight,
             onBackground = LiColors.textLight,
             onSurface = LiColors.textLight,
             primary = LiColors.tgAccentLight,
@@ -145,10 +152,25 @@ fun LiTheme(darkTheme: Boolean = isSystemInDarkTheme(), liquidGlass: Boolean = t
         labelMedium = base.labelMedium.copy(fontSize = 13.sp, lineHeight = 18.sp),
         labelSmall = base.labelSmall.copy(fontSize = 12.sp, lineHeight = 16.sp)
     )
+    val sheetOpen = liquidGlass && LiquidGlassState.activeSheets > 0
+    val blurDp by animateDpAsState(
+        targetValue = if (sheetOpen && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 28.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "sheetBackdropBlur"
+    )
     CompositionLocalProvider(LocalLiquidGlass provides liquidGlass) {
         MaterialTheme(colorScheme = scheme, shapes = shapes, typography = typography) {
             if (liquidGlass) {
-                Box(modifier = Modifier.fillMaxSize()) {
+                val blurMod = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurDp > 0.5.dp) {
+                    Modifier.graphicsLayer {
+                        val px = blurDp.toPx()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && px > 1f) {
+                            val progress = (px / 28.dp.toPx()).coerceIn(0f, 1f)
+                            renderEffect = createSheetBackdropRenderEffect(px, 1f + 0.45f * progress)
+                        }
+                    }
+                } else Modifier
+                Box(modifier = Modifier.fillMaxSize().then(blurMod)) {
                     LiquidGlassBackdrop(dark = darkTheme, modifier = Modifier.fillMaxSize())
                     content()
                 }

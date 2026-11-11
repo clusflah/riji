@@ -3,10 +3,17 @@ package app.birthdayreminder.ui.calendar
 import app.birthdayreminder.ui.common.TileSheet
 import app.birthdayreminder.ui.common.HomeTabs
 import app.birthdayreminder.ui.common.TgFabLabeled
+import app.birthdayreminder.ui.common.TgSmallFab
+import app.birthdayreminder.ui.common.LiquidSheetDragHandle
 import app.birthdayreminder.ui.common.LocalLiquidGlass
+import app.birthdayreminder.ui.common.RegisterLiquidGlassSheet
+import app.birthdayreminder.ui.common.liquidDaySelected
 import app.birthdayreminder.ui.common.liquidGlassBar
-import app.birthdayreminder.ui.common.liquidGlassButton
+import app.birthdayreminder.ui.common.liquidGlassScrimColor
+import app.birthdayreminder.ui.common.liquidGlassSheetContainerColor
 import app.birthdayreminder.ui.common.liquidGlassSurface
+import app.birthdayreminder.ui.common.liquidSheetTopHighlight
+import androidx.compose.material3.BottomSheetDefaults
 import app.birthdayreminder.notify.Reliability
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
@@ -232,15 +239,11 @@ fun CalendarScreen(
             // 右下角：AI 助手在“+”上方；上下滑动时一起隐藏，停下来再出现
             Column(modifier = Modifier.navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (on(Modules.AI)) HideOnScroll(fabHide) {
-                    val aiShape = RoundedCornerShape(12.dp)
-                    androidx.compose.material3.SmallFloatingActionButton(onClick = onAiClick,
-                        modifier = Modifier.liquidGlassButton(aiShape, lightTint = true), shape = aiShape,
-                        containerColor = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.primary,
-                        elevation = androidx.compose.material3.FloatingActionButtonDefaults.elevation(defaultElevation = 1.dp, pressedElevation = 3.dp)) {
+                    TgSmallFab(onClick = onAiClick, secondary = true, cornerRadius = 12.dp) {
                         Icon(Icons.Outlined.AutoAwesome, contentDescription = "AI 助手", modifier = Modifier.size(20.dp))
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(if (LocalLiquidGlass.current) 8.dp else 12.dp))
                 // “+”：日程区域选“全部”时打开添加菜单；选了具体项目就直接进那一项的添加页面
                 // （生理期在标签里有自己的“今天来了 / 记录今天”按钮，不显示“+”）
                 val addAction: (() -> Unit)? = when (homeTab) {
@@ -308,16 +311,34 @@ fun CalendarScreen(
             val fraction = if (maxCollapse > 0f) (collapse / maxCollapse).coerceIn(0f, 1f) else 0f
             val selRow = ui.days.indexOfFirst { it.date == ui.selected }.let { if (it < 0) 0 else it / 7 }
             Column(modifier = Modifier.fillMaxSize().nestedScroll(connection)) {
-            WeekdayRow(ui.weekStart)
-            Box(modifier = Modifier.fillMaxWidth().height(rowH * rows - with(density) { collapse.toDp() }).clipToBounds()) {
-                Box(modifier = Modifier.wrapContentHeight(align = Alignment.Top, unbounded = true)
-                    .graphicsLayer { translationY = -fraction * selRow * rowPx }) {
-                    // 跟手翻页：左右拖动时当前月和相邻的月一起跟着手指走，过半或快速一甩就翻过去
-                    MonthPager(ui, rowH * rows, onShowMonth = vm::showMonth, onSelect = vm::select,
-                        onLongPress = { d -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.select(d); preview = d })
+            val calGlass = LocalLiquidGlass.current
+            Column(
+                modifier = if (calGlass) {
+                    // 日历装入高白清透的大玻璃卡片，保证星期和日期数字的清爽对比度，同时上滑时整卡平滑收起为一周
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 2.dp)
+                        .liquidGlassSurface(
+                            shape = RoundedCornerShape(20.dp),
+                            whiteFillAlpha = 0.86f,
+                            shadowAlpha = 0.04f
+                        )
+                        .padding(vertical = 6.dp)
+                } else {
+                    Modifier.fillMaxWidth()
                 }
+            ) {
+                WeekdayRow(ui.weekStart)
+                Box(modifier = Modifier.fillMaxWidth().height(rowH * rows - with(density) { collapse.toDp() }).clipToBounds()) {
+                    Box(modifier = Modifier.wrapContentHeight(align = Alignment.Top, unbounded = true)
+                        .graphicsLayer { translationY = -fraction * selRow * rowPx }) {
+                        // 跟手翻页：左右拖动时当前月和相邻的月一起跟着手指走，过半或快速一甩就翻过去
+                        MonthPager(ui, rowH * rows, onShowMonth = vm::showMonth, onSelect = vm::select,
+                            onLongPress = { d -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); vm.select(d); preview = d })
+                    }
+                }
+                if (fraction < 0.5f) DotLegend(ui.days)
             }
-            if (fraction < 0.5f) DotLegend(ui.days)
             // 第一次打开：提示一次“上滑查看日程”；往上滑过一次或点一下就不再显示
             var hint by remember { mutableStateOf(!Prefs.swipeHintShown(ctx)) }
             val dismissHint = { hint = false; Prefs.setSwipeHintShown(ctx) }
@@ -482,13 +503,24 @@ private fun ReliabilityBanner(onOpen: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DayPreviewSheet(ui: CalendarUiState, onDismiss: () -> Unit, onOpen: (DayTimeline.Entry) -> Unit) {
+    RegisterLiquidGlassSheet()
     val d = ui.selected
     val entries = remember(ui) { dayEntries(ui) }
-    val sheetBg = if (LocalLiquidGlass.current) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surface
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = sheetBg) {
-        Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+    val glass = LocalLiquidGlass.current
+    val sheetBg = if (glass) liquidGlassSheetContainerColor() else MaterialTheme.colorScheme.surface
+    val scrim = if (glass) liquidGlassScrimColor() else BottomSheetDefaults.ScrimColor
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = sheetBg,
+        scrimColor = scrim,
+        tonalElevation = 0.dp,
+        dragHandle = if (glass) null else ({ BottomSheetDefaults.DragHandle() })
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().liquidSheetTopHighlight(28.dp).padding(bottom = 24.dp)) {
+            if (glass) Box(modifier = Modifier.align(Alignment.CenterHorizontally)) { LiquidSheetDragHandle() }
             Text("${d.monthValue}月${d.dayOfMonth}日 " + WEEK_NAMES[d.dayOfWeek.value - 1], fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.padding(horizontal = 20.dp))
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = if (glass) 4.dp else 0.dp))
             Text(listOfNotNull(ui.selectedLunar.replace("农历 ", "农历"), ui.selectedFestival, ui.selectedHoliday).joinToString(" · "),
                 fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             if (entries.isEmpty()) Text("这天没有记录", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -658,7 +690,8 @@ private data class MonthPage(val month: YearMonth, val days: List<CalendarDayUi>
 private fun WeekdayRow(weekStart: Int) {
     val all = listOf("日", "一", "二", "三", "四", "五", "六")
     val names = List(7) { all[(it + weekStart) % 7] }
-    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 2.dp)) {
+    val hPad = if (LocalLiquidGlass.current) 4.dp else 8.dp
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = hPad, vertical = 2.dp)) {
         names.forEach {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f), fontSize = 13.sp)
@@ -669,7 +702,8 @@ private fun WeekdayRow(weekStart: Int) {
 
 @Composable
 private fun MonthGrid(days: List<CalendarDayUi>, selected: LocalDate, showLunar: Boolean, onSelect: (LocalDate) -> Unit, onLongPress: (LocalDate) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+    val hPad = if (LocalLiquidGlass.current) 4.dp else 8.dp
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = hPad)) {
         days.chunked(7).forEach { week ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 week.forEach { day ->
@@ -699,13 +733,7 @@ private fun DayCell(day: CalendarDayUi, isSelected: Boolean, showLunar: Boolean,
             .padding(horizontal = 2.dp, vertical = 1.dp)
             .then(
                 if (isSelected) {
-                    Modifier.liquidGlassSurface(
-                        shape = cellShape,
-                        tint = primary,
-                        tintAlpha = if (day.isToday) 0.22f else 0.14f,
-                        borderWidth = 0.9.dp,
-                        fallbackColor = if (day.isToday) primary.copy(alpha = 0.16f) else primary.copy(alpha = 0.09f)
-                    )
+                    Modifier.liquidDaySelected(isToday = day.isToday, primary = primary, shape = cellShape)
                 } else {
                     Modifier.clip(cellShape)
                 }
@@ -904,7 +932,7 @@ private fun AgendaDayRow(day: Agenda.Day, today: LocalDate, onOpen: (UpcomingIte
                 color = if (isToday) primary else MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = if (isToday) FontWeight.SemiBold else FontWeight.Normal)
             Column(
                 modifier = Modifier.padding(top = 2.dp).size(48.dp).then(
-                    if (isToday) Modifier.liquidGlassSurface(CircleShape, tint = primary, tintAlpha = 0.18f, fallbackColor = primary.copy(alpha = 0.15f))
+                    if (isToday) Modifier.liquidDaySelected(isToday = true, primary = primary, shape = CircleShape)
                     else Modifier.clip(CircleShape)
                 ),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
@@ -1024,7 +1052,8 @@ private fun DotLegend(days: List<CalendarDayUi>) {
     // 有预测出来的（空心圈）就加一项说明
     val predicted = days.any { it.inCurrentMonth && (it.cycleMark == CycleLogic.Mark.PREDICTED || it.cycleMark == CycleLogic.Mark.FERTILE) }
     if (items.isEmpty()) return
-    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 4.dp).clearAndSetSemantics { },
+    val hPad = if (LocalLiquidGlass.current) 12.dp else 20.dp
+    Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = hPad, vertical = 4.dp).clearAndSetSemantics { },
         horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         items.forEach { (c, t) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
